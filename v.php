@@ -19,7 +19,7 @@ ini_set('memory_limit','1024M');
 
 header("Content-Type: video/mp4");
 #$handle = popen('ffmpeg -re -loglevel panic -hide_banner -nostats -i /var/www/h264.mp4 -bsf:v h264_mp4toannexb -map_metadata -1 -c copy -f mpegts pipe:1', 'r');
-$handle = popen('ffmpeg -loglevel panic -hide_banner -nostats -i rtsp://admin:*1234Hrs@192.168.2.21:554/11 -map_metadata -1 -c copy -f mpegts pipe:1', 'r');
+$handle = popen('ffmpeg -loglevel panic -hide_banner -nostats -i rtsp://admin:*1234Hrs@192.168.2.15:554/11 -map_metadata -1 -c copy -f mpegts pipe:1', 'r');
 
 $save = fopen('/var/www/saved.ts', 'w+');
 

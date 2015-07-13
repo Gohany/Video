@@ -177,6 +177,7 @@ class fileHandle
         public static $instance;
         public $bin = '';
         public $position = 0;
+        public $removed = 0;
 
         public static function singleton()
         {
@@ -186,19 +187,36 @@ class fileHandle
 
         public static function read($handle, $size)
         {
-                if ((self::singleton()->position + $size) > strlen(self::singleton()->bin))
+                if ((self::singleton()->position() + $size) > strlen(self::singleton()->bin))
                 {
-                        while ((self::singleton()->position + $size) > strlen(self::singleton()->bin) && !feof($handle))
+                        while ((self::singleton()->position() + $size) > strlen(self::singleton()->bin) && !feof($handle))
                         {
                                 $bin = fread($handle, 76800);
                                 self::singleton()->bin .= $bin;
                         }
                 }
-                $data = substr(self::singleton()->bin, self::singleton()->position, $size);
+                $data = substr(self::singleton()->bin, self::singleton()->position(), $size);
                 self::singleton()->position += $size;
+                
+                if (self::singleton()->position() > 1500000)
+                {
+                        print "MEM USAGE: ". memory_get_usage() . PHP_EOL;
+                        print "BIN LENGTH: " . strlen(self::singleton()->bin) . PHP_EOL;
+                        self::singleton()->bin = substr(self::singleton()->bin, 750000);
+                        self::singleton()->removed += 750000;
+                        print "REMOVING.. " . PHP_EOL;
+                        print "BIN LENGTH: " . strlen(self::singleton()->bin) . PHP_EOL;
+                        print "MEM USAGE: ". memory_get_usage() . PHP_EOL;
+                }
+                
                 return $data;
         }
-
+        
+        public static function position()
+        {
+                return self::singleton()->position - self::singleton()->removed;
+        }
+        
         public static function seek($handle, $position)
         {
                 self::singleton()->position = $position;
@@ -263,7 +281,7 @@ class EBMLReader
         // Determine whether we are at end of data
         public function endOfData()
         {
-                
+
                 if ($this->_size === NULL)
                 {
                         fileHandle::seek($this->_fileHandle, $this->_offset + $this->_position);
@@ -720,60 +738,70 @@ function readAll($fileHandle)
 {
         $reader = new EBMLReader($fileHandle);
         $root = new EBMLElementList('root', $reader, 0, '');
-        //print "\x1a\x45\xdf\xa3";
-        //print "SIZE: ".$root->size() . PHP_EOL;
-        iterateElements($root, 0, 0);
-        //$segment = $root->get('Segment');
-        //print "SIZE: ".$segment->size() . PHP_EOL;
-        //var_dump($segment);
-        //print fileHandle::bin();
+
+        $context = new ZMQContext();
+        $publisher = $context->getSocket(ZMQ::SOCKET_PUB);
+        $publisher->bind("tcp://*:5556");
+        
+        $handle = fopen('/var/www/mkv.header', 'w');
+        flock($handle, LOCK_EX);
+        iterateElements($handle, $publisher, $root, 0, 0);
 }
 
-function iterateElements($elements, $depth, $clusters)
+function iterateElements($handle, &$publisher, &$elements, $depth, $clusters = 0, $skip = false)
 {
-
+        $pub = 'mkv';
+        $simpleBlocks = 0;
         foreach ($elements as $element)
         {
 
                 switch (get_class($element))
                 {
                         case 'EBMLElementList':
-
-                                if ($element->name() == 'Cluster')
+                                
+                                if ($clusters == 0 && $element->name() == 'Cluster')
                                 {
                                         $clusters++;
-                                        if ($clusters < 6)
-                                        {
-                                                continue;
-                                        }
+                                        flock($handle, LOCK_UN);
                                 }
-
+                                elseif ($clusters == 0)
+                                {
+                                        //print "WRITING CONTAINER: ".$element->name() . PHP_EOL;
+                                        fwrite($handle, $element->_head);
+                                }
                                 
-//                                for ($i=0,$c=$depth;$i<$c;$i++)
-//                                {
-//                                        print "  ";
-//                                }
-                                //print 'NAME: '.$element->name() . PHP_EOL;
-                                //print 'DEPTH: '.$depth . PHP_EOL;
-                                //print 'CLUSTERS: '.$clusters . PHP_EOL;
-                                print $element->_head;
-                                iterateElements($element, $depth + 1, $clusters);
+                                if ($clusters > 0)
+                                {
+                                        //print "SENDING CONTAINER: ".$element->name() . PHP_EOL;
+                                        $publisher->send($pub . 1 . $element->_head);
+                                }
+                                else
+                                {
+                                        //print "SKIPPING: ".$element->name() . PHP_EOL;
+                                }
+                                //print $element->_head;
+                                iterateElements($handle, $publisher, $element, $depth + 1, $clusters, $skip);
                                 break;
                         case 'EBMLElement':
-//                                for ($i=0,$c=$depth;$i<$c;$i++)
-//                                {
-//                                        print "  ";
-//                                }
                                 
-                                //print 'NAME: '.$element->name() . PHP_EOL;
-                                //print 'DEPTH: '.$depth . PHP_EOL;
-                                
-                                //print ebmlDecode($element->_content->readAll(), $element->_datatype);
-                                print $element->_head;
-                                print $element->_content->readAll();
+                                if ($clusters > 0)
+                                {
+                                        $publisher->send($pub . 0 . $element->_head . $element->_content->readAll());
+                                        //print "SENDING: ".$element->name() . PHP_EOL;
+                                }
+                                else
+                                {
+                                        //print "WRITING: ".$element->name() . PHP_EOL;
+                                        fwrite($handle, $element->_head . $element->_content->readAll());
+                                }
+                                unset($element);
+                                //print $element->_head;
+                                //print $element->_content->readAll();
                                 break;
                 }
+                unset($element);
         }
+        unset($elements);
 }
 
 function ebmlEncodeVarInt($n)
