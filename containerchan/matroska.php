@@ -204,9 +204,11 @@ class fileHandle
                         print "BIN LENGTH: " . strlen(self::singleton()->bin) . PHP_EOL;
                         self::singleton()->bin = substr(self::singleton()->bin, 750000);
                         self::singleton()->removed += 750000;
+                        //gc_collect_cycles();
                         print "REMOVING.. " . PHP_EOL;
                         print "BIN LENGTH: " . strlen(self::singleton()->bin) . PHP_EOL;
                         print "MEM USAGE: ". memory_get_usage() . PHP_EOL;
+                        
                 }
                 
                 return $data;
@@ -281,7 +283,7 @@ class EBMLReader
         // Determine whether we are at end of data
         public function endOfData()
         {
-
+                //return false;
                 if ($this->_size === NULL)
                 {
                         fileHandle::seek($this->_fileHandle, $this->_offset + $this->_position);
@@ -522,11 +524,13 @@ class EBMLElementList extends EBMLElement implements Iterator
 
         public function next()
         {
+                $position = $this->_position;
                 $this->_position += $this->current()->size();
                 if ($this->content()->size() !== NULL && $this->_position > $this->content()->size())
                 {
                         throw new Exception('unexpected end of data');
                 }
+                unset($this->_cache[$position]);
         }
 
         public function valid()
@@ -745,7 +749,10 @@ function readAll($fileHandle)
         
         $handle = fopen('/var/www/mkv.header', 'w');
         flock($handle, LOCK_EX);
+        
         iterateElements($handle, $publisher, $root, 0, 0);
+        var_dump($root);
+        print "SIZE: ".strlen(serialize($root)).PHP_EOL;
 }
 
 function iterateElements($handle, &$publisher, &$elements, $depth, $clusters = 0, $skip = false)
@@ -802,6 +809,7 @@ function iterateElements($handle, &$publisher, &$elements, $depth, $clusters = 0
                 unset($element);
         }
         unset($elements);
+        
 }
 
 function ebmlEncodeVarInt($n)
