@@ -1849,7 +1849,7 @@ class EBMLElements
 
         public static function validChild($id1, $id2)
         {
-                if (!isset($this->elements[$id2]))
+                if (!isset(self::singleton()->elements[$id2]))
                 {
                         return true;
                 }

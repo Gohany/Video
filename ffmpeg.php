@@ -1,6 +1,15 @@
 <?php
 
-$ffmpeg = new ffmpeg('rtsp://admin:*1234Hrs@192.168.2.15:554/11', array('output' => array('crf' => '15')));
+require_once 'stream.php';
+require_once 'stdin.php';
+
+$stdin = new stdin;
+if (!empty($stdin->input) && !empty($stdin->id) && !empty($stdin->port))
+{
+        //$ffmpeg = new ffmpeg('rtsp://admin:*1234Hrs@192.168.2.15:554/11');
+        $ffmpeg = new ffmpeg($stdin->input);
+        $stream = new mkvStream($stdin->id, $stdin->port, $ffmpeg->pipeHandle);
+}
 
 class ffmpeg
 {
@@ -31,7 +40,8 @@ class ffmpeg
         {
                 //$this->pipeHandle = popen('ffmpeg -loglevel panic -hide_banner -nostats -i rtsp://admin:*1234Hrs@192.168.2.7:554/11 -map_metadata -1 -c:v libvpx -vf scale=-1:320 -deadline realtime -crf 7 -b:v 500k -keyint_min 15 -g 7 -c:a libvorbis -f webm pipe:1', 'r');
                 $ffmpegString = $this->ffmpegString($input, $options);
-                $this->pipeHandle = popen($ffmpegString);
+                print $ffmpegString . PHP_EOL;
+                $this->pipeHandle = popen($ffmpegString, 'r');
         }
         
         public function ffmpegString($input, $options)

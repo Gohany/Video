@@ -1,5 +1,8 @@
 <?php
 
+require_once 'ebml.php';
+require_once 'ebmlElements.php';
+
 class fileHandle
 {
 
@@ -91,19 +94,20 @@ class mkvStream
                 $this->zmqPublisher->bind("tcp://*:" . $this->zmqPublishPort);
 
                 $this->headerHandle = fopen('/var/www/mkv.' . $id . '.header', 'w');
-                flock($handle, LOCK_EX);
+                flock($this->headerHandle, LOCK_EX);
                 
                 $this->publishString = 'mkv.' . $id;
+                print "ITERATING!". PHP_EOL;
                 $this->iterateElements($root);
                 
         }
 
         public function iterateElements(&$elements)
         {
-                
+                print "HERE!" . PHP_EOL;
                 foreach ($elements as $element)
                 {
-
+                        print "HERE!" . PHP_EOL;
                         switch (get_class($element))
                         {
                                 case 'EBMLElementList':

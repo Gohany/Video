@@ -5,10 +5,11 @@ $context = new ZMQContext();
 $subscriber = new ZMQSocket($context, ZMQ::SOCKET_SUB);
 $subscriber->connect("tcp://localhost:8100");
 
-$subscriber->setSockOpt(ZMQ::SOCKOPT_SUBSCRIBE, 'mkv');
+$subscriber->setSockOpt(ZMQ::SOCKOPT_SUBSCRIBE, 'mkv.1');
 
 $hasContainer = false;
-$handle = fopen('/var/www/mkv.header', 'r');
+//'/var/www/mkv.' . $id . '.header'
+$handle = fopen('/var/www/mkv.1.header', 'r');
 
 do
 {
@@ -31,7 +32,7 @@ while (!feof($handle))
 while (true)
 {
         //print "GOT SOMETHING" . PHP_EOL;
-        $mkv = substr($subscriber->recv(), 3);
+        $mkv = substr($subscriber->recv(), 5);
         //var_dump($mkv[0]);
         if ($hasContainer)
         {
