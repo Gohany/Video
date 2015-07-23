@@ -1,7 +1,11 @@
 <?php
 
+//print "FFMPEG, BITCHES";
+//var_dump($argv);
 require_once 'stream.php';
 require_once 'stdin.php';
+
+ob_start();
 
 $stdin = new stdin;
 if (!empty($stdin->input) && !empty($stdin->id) && !empty($stdin->port))
@@ -10,6 +14,12 @@ if (!empty($stdin->input) && !empty($stdin->id) && !empty($stdin->port))
         $ffmpeg = new ffmpeg($stdin->input);
         $stream = new mkvStream($stdin->id, $stdin->port, $ffmpeg->pipeHandle);
 }
+else
+{
+        //print "incorrect inputs";
+}
+
+ob_flush();
 
 class ffmpeg
 {

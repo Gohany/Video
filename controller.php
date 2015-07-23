@@ -28,7 +28,7 @@ class controller
 
         public function __construct()
         {
-                
+
                 $this->context = new ZMQContext();
                 $this->frontend = new ZMQSocket($this->context, ZMQ::SOCKET_ROUTER);
                 $this->backend = new ZMQSocket($this->context, ZMQ::SOCKET_DEALER);
@@ -39,7 +39,6 @@ class controller
                 $this->poll = new ZMQPoll();
                 $this->poll->add($this->frontend, ZMQ::POLL_IN);
                 $this->poll->add($this->backend, ZMQ::POLL_IN);
-
         }
 
         public function run()
@@ -56,12 +55,12 @@ class controller
                                 if ($socket === $this->frontend)
                                 {
                                         $request = $zmsg->body();
-                                        print "REQUEST: ".$request . PHP_EOL;
+                                        print "REQUEST: " . $request . PHP_EOL;
                                         // do mysql stuff
-                                        
+
                                         $port = $this->startingPort . PHP_EOL;
-                                        
-                                        print "PORT: ".$port;
+
+                                        print "PORT: " . $port;
                                         $zmsg->body_set($port);
                                         $zmsg->set_socket($this->backend)->send();
                                 }
@@ -71,28 +70,98 @@ class controller
                                         // start container logic
                                         // stuff
                                         $reply = $zmsg->body();
-                                        print "REPLY: ".$reply . PHP_EOL;
+                                        print "REPLY: " . $reply . PHP_EOL;
                                         // update mysql
-                                        $this->startFFMPEG(1, $this->startingPort);
-                                        print "PORT: ".$this->startingPort . PHP_EOL;
+                                        $this->startFFMPEG('/var/www/h264.mp4', 1, $this->startingPort);
+                                        print "PORT: " . $this->startingPort . PHP_EOL;
                                         $this->startingPort++;
-                                        
-                                        
+
                                         $zmsg->body_set('success');
                                         $zmsg->set_socket($this->frontend)->send();
                                 }
                         }
                 }
         }
-        
-        public function startFFMPEG2()
+
+        public function startFFMPEG($input, $id, $port)
         {
-                exec(PHP_BINDIR . '/php /var/www/ffmpeg.php > /dev/null 2>&1 &');       
+                print PHP_EOL . PHP_BINDIR . '/php /var/www/ffmpeg.php -i ' . $input . ' -id ' . $id . ' -p ' . $port . PHP_EOL;
+                $process = new Process(PHP_BINDIR . '/php /var/www/ffmpeg.php -i ' . $input . ' -id ' . $id . ' -p ' . $port);
+                print "PID: ".$process->pid . PHP_EOL;
         }
-        
-        public function startFFMPEG($id, $port)
+
+}
+
+class Process
+{
+
+        public $pid;
+        public $command;
+
+        public function __construct($cl = false)
         {
-                $this->workers[$port] = popen(PHP_BINDIR . '/php /var/www/ffmpeg.php ' . $id . ' ' . $port);
+                if ($cl != false)
+                {
+                        $this->command = $cl;
+                        $this->runCom();
+                }
+        }
+
+        private function runCom()
+        {
+                $command = 'nohup ' . $this->command . ' > /dev/null 2>&1 & echo $!';
+                exec($command, $op);
+                $this->pid = (int) $op[0];
+        }
+
+        public function setPid($pid)
+        {
+                $this->pid = $pid;
+        }
+
+        public function getPid()
+        {
+                return $this->pid;
+        }
+
+        public function status()
+        {
+                $command = 'ps -p ' . $this->pid;
+                exec($command, $op);
+                if (!isset($op[1]))
+                {
+                        return false;
+                }
+                else
+                {
+                        return true;
+                }
+        }
+
+        public function start()
+        {
+                if ($this->command != '')
+                {
+                        $this->runCom();
+                }
+                else
+                {
+                        return true;
+                }
+        }
+
+        public function stop()
+        {
+                $command = 'kill ' . $this->pid;
+                exec($command);
+                if ($this->status() == false)
+                {
+                        return true;
+                }
+                else
+                {
+                        return false;
+                }
         }
 
 }

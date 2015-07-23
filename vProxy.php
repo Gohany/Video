@@ -48,8 +48,8 @@ class zmqProxy
 
         public function registerBackend($port, $ip = '127.0.0.1', $protocol = 'tcp')
         {
-                $networkString = $protocol . '://' . $ip . ':' . $port;
-                if ($this->backend->connect($networkString))
+                $networkString = trim($protocol) . '://' . trim($ip) . ':' . trim($port);
+                if (!in_array($networkString, $this->backends) && $this->backend->connect($networkString))
                 {
                         $this->backends[] = $networkString;
                         print_r($this->backends);
@@ -80,8 +80,7 @@ class zmqProxy
                                                 $message['backend'] .= $this->backend->recv();
                                                 //  Multipart detection
                                                 $more = $this->backend->getSockOpt(ZMQ::SOCKOPT_RCVMORE);
-                                                $this->frontend->send($message, $more ? ZMQ::SOCKOPT_SNDMORE : 0);
-                                                print "SENDING STUFF!" . PHP_EOL;
+                                                $this->frontend->send($message['backend'], $more ? ZMQ::SOCKOPT_SNDMORE : 0);
                                                 if (!$more)
                                                 {
                                                         $message['backend'] = '';

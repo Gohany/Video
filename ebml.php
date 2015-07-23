@@ -223,7 +223,6 @@ class EBMLReader
 
                 if ($data === false || strlen($data) != $this->_size)
                 {
-                        print "WANTED " . $this->_size . " but got " . strlen($data) . PHP_EOL;
                         throw new Exception('error reading from file');
                 }
                 return $data;
@@ -282,7 +281,7 @@ class EBMLReader
 
                 // Convert to integer
                 $n = ebmlUtil::ebmlDecodeInt($rawInt, false, $n);
-
+                
                 // Range shift for signed integers
                 if ($signed)
                 {
@@ -440,6 +439,7 @@ class EBMLElementList extends EBMLElement implements Iterator
                 {
                         throw new Exception('invalid ID');
                 }
+                
                 if ($this->content()->size() === null && !EBMLElements::validChild($this->id(), $id))
                 {
                         $this->content()->setSize($this->_position);
@@ -447,9 +447,10 @@ class EBMLElementList extends EBMLElement implements Iterator
                 }
 
                 $size = $this->content()->readVarInt();
+                
                 $headSize = $this->content()->position() - $this->_position;
                 $content = $this->content()->nextSlice($size);
-
+                
                 if (EBMLElements::datatype($id) == 'container')
                 {
                         $element = new EBMLElementList($id, $content, $headSize, $this->content()->head);

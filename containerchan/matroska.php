@@ -192,6 +192,9 @@ class fileHandle
                         while ((self::singleton()->position() + $size) > strlen(self::singleton()->bin) && !feof($handle))
                         {
                                 $bin = fread($handle, 76800);
+//                                print "BINARY! " . PHP_EOL;
+//                                print bin2hex($bin) . PHP_EOL;
+//                                exit;
                                 self::singleton()->bin .= $bin;
                         }
                 }
@@ -375,6 +378,7 @@ class EBMLReader
                 // Check for all ones
                 if ($n == $flag - 1 && $rawInt == str_repeat("\xFF", $size))
                 {
+                        print "hmmm" . PHP_EOL;
                         return NULL;
                 }
 
@@ -391,10 +395,11 @@ class EBMLReader
                                 $n -= ($flag >> 1);
                         }
                 }
-
+                
                 // Convert to integer
                 $n = ebmlDecodeInt($rawInt, FALSE, $n);
-
+                var_dump($n);
+                
                 // Range shift for signed integers
                 if ($signed)
                 {
@@ -554,6 +559,7 @@ class EBMLElementList extends EBMLElement implements Iterator
                 $size = $this->content()->readVarInt();
                 $headSize = $this->content()->position() - $this->_position;
                 $content = $this->content()->nextSlice($size);
+                print "TYPE: ".$EBML_ELEMENTS->datatype($id).PHP_EOL;
                 if ($EBML_ELEMENTS->datatype($id) == 'container')
                 {
                         $element = new EBMLElementList($id, $content, $headSize, $this->content()->head);
@@ -761,7 +767,7 @@ function iterateElements($handle, &$publisher, &$elements, $depth, $clusters = 0
         $simpleBlocks = 0;
         foreach ($elements as $element)
         {
-
+                print get_class($element) . PHP_EOL;
                 switch (get_class($element))
                 {
                         case 'EBMLElementList':

@@ -5,7 +5,7 @@ print '$ids = [' . PHP_EOL;
 foreach ($lines as $line)
 {
         $fields = explode(' ', trim($line));
-        $id = $fields[0];
+        $id = hexdec($fields[0]);
         $array['datatype'] = $fields[1];
         $array['name'] = $fields[2];
         $array['validParents'] = array();
@@ -24,11 +24,11 @@ foreach ($lines as $line)
         // IDS
 
         print "\t";
-        print "'" . strtoupper($array['name']) . "' => '" . $id . "'," . PHP_EOL;
+        print "'" . strtoupper($array['name']) . "' => " . $id . "," . PHP_EOL;
 
 
 //        print "\t";
-//        print "'" . $id . "' => [" . PHP_EOL;
+//        print $id . " => [" . PHP_EOL;
 //        print "\t\t";
 //        print "'datatype' => '" . $array['datatype'] . "'," . PHP_EOL;
 //        print "\t\t";
@@ -38,7 +38,7 @@ foreach ($lines as $line)
 //        foreach ($array['validParents'] as $parent)
 //        {
 //                print "\t\t\t";
-//                print "'" . $parent . "'," . PHP_EOL;
+//                print $parent . "," . PHP_EOL;
 //        }
 //        print "\t\t";
 //        print "]," . PHP_EOL;
