@@ -1,3 +1,9 @@
+<?php
+        session_start();
+        $id = !empty($_GET['id']) ? $_GET['id'] : 1;
+        $_SESSION['currentId'] = $id;
+        $_SESSION['pid'] = getmypid();
+?>
 <!DOCTYPE html>
 <html manifest="manifest.appcache">
         <head>
@@ -21,30 +27,32 @@
         <body>
                 <div id="container1" class="draggable ui-widget-content">
                         <video id="video1" autoplay muted controls>
-                                <source src="http://127.0.0.2/vListen.php">
-                        </video>
+                                <source src="http://127.0.0.2/vListen.php?id=<?=$id?>&sid=<?=session_id()?>">
+                        </video>        
                 </div>
+            <!--
                 <div id="container2" class="draggable ui-widget-content">
                         <video id="video2" autoplay muted>
-                                <source src="http://127.0.0.2/vListen.php" type="video/webm">
+                                <source src="http://127.0.0.2/vListen.php?id=<?=$id?>" type="video/webm">
                         </video>
                 </div>
                 <div id="container3" class="draggable ui-widget-content">
                         <video id="video3" autoplay muted>
-                                <source src="http://127.0.0.2/vListen.php" type="video/webm">
+                                <source src="http://127.0.0.2/vListen.php?id=<?=$id?>" type="video/webm">
                         </video>
                 </div>
                 <div id="container4" class="draggable ui-widget-content">
                         <video id="video4" autoplay muted>
-                                <source src="http://127.0.0.2/vListen.php" type="video/webm">
+                                <source src="http://127.0.0.2/vListen.php?id=<?=$id?>" type="video/webm">
                         </video>
                 </div>
+            -->
                 <script>
                         $(function () {
                                 $("#container1").draggable();
-                                $("#container2").draggable();
-                                $("#container3").draggable();
-                                $("#container4").draggable();
+                                //$("#container2").draggable();
+                                //$("#container3").draggable();
+                                //$("#container4").draggable();
                                 $("#container1").resizable({
                                         aspectRatio: true,
                                         resize: function(event, ui){
@@ -52,6 +60,7 @@
                                                 $("#video1").height(ui.size.height);
                                         }
                                 });
+                                /*
                                 $("#container2").resizable({
                                         aspectRatio: true,
                                         resize: function(event, ui){
@@ -73,6 +82,7 @@
                                                 $("#video4").height(ui.size.height);
                                         }
                                 });
+                                */
                         });
                 </script>
         </body>

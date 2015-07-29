@@ -20,7 +20,7 @@ class zmqProxy
         public $context;
         public $frontend;
         public $backend;
-        public $backends;
+        public $backends = array();
         public $poll;
         public $instructionService;
 

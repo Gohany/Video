@@ -1,15 +1,228 @@
 <?php
 
+$clientVideo = new clientVideo;
+$clientVideo->run();
+
+class clientVideo
+{
+        
+        public $videoID;
+        public $sessionId;
+        public $redis;
+        public $videoData;
+        
+        const REDIS_SESSION_PREFIX = "PHPREDIS_SESSION:";
+        const REDIS_IP = '127.0.0.1';
+        const REDIS_PORT = '6379';
+        const REDIS_TIMEOUT = 100;
+        
+        public function __construct()
+        {
+                
+                session_start();
+                $this->videoID = !empty($_GET['id']) ? $_GET['id'] : 1;
+                $this->sessionId = !empty($_GET['sid']) ? $_GET['sid'] : null;
+                $this->redis = new Redis();
+                
+                try
+                {
+                        $this->redis->connect(self::REDIS_IP, self::REDIS_PORT, self::REDIS_TIMEOUT);
+                }
+                catch (RedisException $ex)
+                {
+                        throw new Exception('Could not connect to redis.');
+                }
+                
+                if (!empty($this->sessionId) && $this->loadSessionData())
+                {
+                        $this->videoData = new clientVideoData($this->videoID);
+                }
+                
+        }
+        
+        public function run()
+        {
+                while (true)
+                {
+                        $this->videoData->run();
+                }
+        }
+        
+        public function loadSessionData()
+        {
+                return session_decode($this->redis->get(self::REDIS_SESSION_PREFIX . $this->sessionId));
+        }
+        
+}
+
+class clientVideoData
+{
+        
+        public $containerSent = false;
+        public $context;
+        public $videoSubscription;
+        public $commandSubscription;
+        public $id;
+        public $headerString;
+        public $subscriptions = [
+            'video' => [],
+            'command' => [],
+        ];
+        
+        const PROXY_PORT = 8100;
+        const COMMAND_PORT = 8101;
+        const VIDEO_PREFIX = 'mkv.';
+        const VIDEO_HEADERS_DIR = '/var/www/';
+        
+        public function __construct($id = 1)
+        {
+                
+                $this->id = $id;
+                $this->context = new ZMQContext;
+                $this->videoSubscription = new ZMQSocket($this->context, ZMQ::SOCKET_SUB);
+                $this->videoSubscription->connect("tcp://localhost:" . self::PROXY_PORT);
+                $this->subscribe('video', 'mkv.' . $this->id);
+                
+                $this->commandSubscription = new ZMQSocket($this->context, ZMQ::SOCKET_SUB);
+                $this->commandSubscription->connect("tcp://localhost:" . self::COMMAND_PORT);
+                $this->subscribe('command', 'all');
+                
+                $this->poll = new ZMQPoll();
+                $this->poll->add($this->videoSubscription, ZMQ::POLL_IN);
+                $this->poll->add($this->commandSubscription, ZMQ::POLL_IN);
+                
+                $this->headerString = self::VIDEO_HEADERS_DIR . self::VIDEO_PREFIX . $this->id . '.header';
+                $this->header();
+                
+        }
+        
+        public function subscribe($socket, $subscription)
+        {
+                if (!empty($this->{$socket.'Subscription'}))
+                {
+                        
+                        try
+                        {
+                                 $this->{$socket.'Subscription'}->setSockOpt(ZMQ::SOCKOPT_SUBSCRIBE, $subscription);
+                        }
+                        catch (ZMQSocketException $ex)
+                        {
+                                throw new Exception ('Failed to subscribe to ' . $subscription . ' on socket ' . $socket);
+                        }
+                       
+                        $this->subscriptions[$socket][] = $subscription;
+                }
+        }
+        
+        public function unsubscribe($socket, $subscription)
+        {
+                if (!empty($this->{$socket.'Subscription'}) && in_array($subscription, $this->subscriptions[$socket]))
+                {
+                        
+                        try
+                        {
+                                 $this->{$socket.'Subscription'}->setSockOpt(ZMQ::SOCKOPT_UNSUBSCRIBE, $subscription);
+                        }
+                        catch (ZMQSocketException $ex)
+                        {
+                                throw new Exception ('Failed to unsubscribe to ' . $subscription . ' on socket ' . $socket);
+                        }
+                        $key = array_search($subscription, $this->subscriptions[$socket]);
+                        unset($this->subscriptions[$socket][$key]);
+                }
+        }
+        
+        public function run()
+        {
+                while (true)
+                {
+                        $readable = $writeable = array();
+                        $events = $this->poll->poll($readable, $writeable);
+                        if ($events > 0)
+                        {
+                                foreach ($readable as $socket)
+                                {
+                                        if ($socket === $this->videoSubscription)
+                                        {
+                                                $this->printVideo();
+                                        }
+                                        elseif ($socket === $this->commandSubscription)
+                                        {
+                                                // do stuff
+                                        }
+                                }
+                        }
+                }
+        }
+        
+        public function printVideo()
+        {
+                $packet = $this->videoSubscription->recv();
+                foreach ($this->subscriptions['video'] as $subscription)
+                {
+                        if (substr($packet, 0, strlen($subscription)) === $subscription)
+                        {
+                                $data = substr($packet, strlen($subscription));
+                                if ($this->containerSent === true)
+                                {
+                                        print substr($data, 1);
+                                }
+                                elseif ($data[0] === '1')
+                                {
+                                        print substr($data, 1);
+                                        $this->containerSent = true;
+                                }
+                        }
+                }
+        }
+        
+        public function waitForContainer()
+        {
+                $this->containerSent = false;
+        }
+        
+        public function header()
+        {
+                
+                $handle = fopen($this->headerString, 'r');
+                do
+                {
+                        flock($handle, LOCK_EX | LOCK_NB, $wouldblock);
+                }
+                while ($wouldblock);
+                flock($handle, LOCK_UN);
+                
+                while (!feof($handle))
+                {
+                        print fread($handle, 1024);
+                }
+        }
+        
+}
+/*
+session_start();
+$id = !empty($_GET['id']) ? $_GET['id'] : 1;
+$sessionId = !empty($_GET['sid']) ? $_GET['sid'] : 0;
+
+$sessionKey = "PHPREDIS_SESSION:" . $sessionId;
+//Create new connection
+$redis = new Redis();
+$redis->connect('127.0.0.1', 6379, 100);
+
+$sessionData = session_decode($redis->get($sessionKey));
+var_dump($_SESSION);
+exit;
+
 $context = new ZMQContext();
 
 $subscriber = new ZMQSocket($context, ZMQ::SOCKET_SUB);
 $subscriber->connect("tcp://localhost:8100");
 
-$subscriber->setSockOpt(ZMQ::SOCKOPT_SUBSCRIBE, 'mkv.1');
+$subscriber->setSockOpt(ZMQ::SOCKOPT_SUBSCRIBE, 'mkv.' . $id);
 
 $hasContainer = false;
 //'/var/www/mkv.' . $id . '.header'
-$handle = fopen('/var/www/mkv.1.header', 'r');
+$handle = fopen('/var/www/mkv.' . $id . '.header', 'r');
 
 do
 {
@@ -50,3 +263,4 @@ while (true)
                 //print "NO CONTAINER" . PHP_EOL;
         }
 }
+ */
