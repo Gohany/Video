@@ -1,7 +1,14 @@
 <?php
 
-$clientVideo = new clientVideo;
-$clientVideo->run();
+try
+{
+        $clientVideo = new clientVideo;
+        $clientVideo->run();
+}
+catch (Exception $e)
+{
+        print "Exception: " . $e->getMessage() . PHP_EOL;
+}
 
 class clientVideo
 {
@@ -44,7 +51,10 @@ class clientVideo
         {
                 while (true)
                 {
-                        $this->videoData->run();
+                        if (!$this->videoData->run())
+                        {
+                                return false;
+                        }
                 }
         }
         
@@ -73,6 +83,11 @@ class clientVideoData
         const COMMAND_PORT = 8101;
         const VIDEO_PREFIX = 'mkv.';
         const VIDEO_HEADERS_DIR = '/var/www/';
+        
+        const CMD_CHANGE_CHANNEL = 'cc';
+        const CMD_STOP = 'stop';
+        const CMD_ADD_CHANNEL = 'add';
+        const CMD_REMOVE_CHANNEL = 'del';
         
         public function __construct($id = 1)
         {
@@ -108,10 +123,13 @@ class clientVideoData
                         catch (ZMQSocketException $ex)
                         {
                                 throw new Exception ('Failed to subscribe to ' . $subscription . ' on socket ' . $socket);
+                                return false;
                         }
                        
                         $this->subscriptions[$socket][] = $subscription;
+                        return true;
                 }
+                return false;
         }
         
         public function unsubscribe($socket, $subscription)
@@ -126,33 +144,79 @@ class clientVideoData
                         catch (ZMQSocketException $ex)
                         {
                                 throw new Exception ('Failed to unsubscribe to ' . $subscription . ' on socket ' . $socket);
+                                return false;
                         }
                         $key = array_search($subscription, $this->subscriptions[$socket]);
                         unset($this->subscriptions[$socket][$key]);
+                        return true;
                 }
+                return false;
         }
         
         public function run()
         {
-                while (true)
+                
+                $readable = $writeable = array();
+                $events = $this->poll->poll($readable, $writeable);
+                if ($events > 0)
                 {
-                        $readable = $writeable = array();
-                        $events = $this->poll->poll($readable, $writeable);
-                        if ($events > 0)
+                        foreach ($readable as $socket)
                         {
-                                foreach ($readable as $socket)
+                                if ($socket === $this->videoSubscription)
                                 {
-                                        if ($socket === $this->videoSubscription)
-                                        {
-                                                $this->printVideo();
-                                        }
-                                        elseif ($socket === $this->commandSubscription)
-                                        {
-                                                // do stuff
-                                        }
+                                        $this->printVideo();
+                                        return true;
+                                }
+                                elseif ($socket === $this->commandSubscription)
+                                {
+                                        // do stuff
+                                        return $this->doCommand();
                                 }
                         }
                 }
+                return true;
+        }
+        
+        public function doCommand()
+        {
+                $packet = $this->videoSubscription->recv();
+                foreach ($this->subscriptions['command'] as $subscription)
+                {
+                        if (substr($packet, 0, strlen($subscription)) === $subscription)
+                        {
+                                $data = substr($packet, strlen($subscription));
+                                $parts = explode($data, ' ');
+                                switch ($parts[0])
+                                {
+                                        case self::CMD_CHANGE_CHANNEL:
+                                                return $this->changeChannel($parts[1]);
+                                                break;
+                                        case self::CMD_STOP:
+                                                return false;
+                                                break;
+                                        case self::CMD_ADD_CHANNEL:
+                                                return $this->subscribe('video', $parts[1]);
+                                                break;
+                                        case self::CMD_REMOVE_CHANNEL:
+                                                return $this->unsubscribe('video', $parts[1]);
+                                                break;
+                                }
+                        }
+                }
+        }
+        
+        public function changeChannel($channel)
+        {
+                foreach ($this->subscriptions['video'] as $sub)
+                {
+                        if (!$this->unsubscribe('video', $sub))
+                        {
+                                return false;
+                        }
+                }
+                $this->containerSent = false;
+                
+                return $this->subscribe('video', $channel);
         }
         
         public function printVideo()
