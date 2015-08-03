@@ -2,8 +2,9 @@
 
 require_once 'zmsg.php';
 
+$id = 1;
 $client = new client;
-$client->request();
+$client->request($id);
 
 class client
 {
@@ -30,11 +31,11 @@ class client
                 $this->poll->add($this->client, ZMQ::POLL_IN);
         }
 
-        public function request()
+        public function request($id)
         {
 
                 $zmsg = new Zmsg($this->client);
-                $zmsg->body_set('i want dis thing');
+                $zmsg->body_set($id);
                 $zmsg->send();
 
                 $read = $write = array();

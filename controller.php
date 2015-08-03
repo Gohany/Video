@@ -25,6 +25,7 @@ class controller
         public $poll;
         public $startingPort = 6400;
         public $workers;
+        public $requests;
 
         public function __construct()
         {
@@ -57,11 +58,17 @@ class controller
                                         $request = $zmsg->body();
                                         print "REQUEST: " . $request . PHP_EOL;
                                         // do mysql stuff
+                                        
+                                        
+                                        
+                                        $port = $this->startingPort;
 
-                                        $port = $this->startingPort . PHP_EOL;
-
-                                        print "PORT: " . $port;
-                                        $zmsg->body_set($port);
+                                        print "PORT: " . $port . PHP_EOL;
+                                        $zmsg->push($request);
+                                        $zmsg->push($port);
+                                        $zmsg->wrap(1234);
+                                        //$zmsg->body_set($port);
+                                        //$zmsg->push($request);
                                         $zmsg->set_socket($this->backend)->send();
                                 }
                                 elseif ($socket === $this->backend)
@@ -69,15 +76,24 @@ class controller
                                         // if good.. update mysql
                                         // start container logic
                                         // stuff
+                                        $address = $zmsg->unwrap();
+                                        print "ADDRESS: ".$address . PHP_EOL;
                                         $reply = $zmsg->body();
                                         print "REPLY: " . $reply . PHP_EOL;
                                         // update mysql
-                                        $this->startFFMPEG('/var/www/h264.mp4', 1, $this->startingPort);
-                                        print "PORT: " . $this->startingPort . PHP_EOL;
-                                        $this->startingPort++;
+                                        if ($pid = $this->startFFMPEG('/var/www/h264.mp4', 1, $this->startingPort))
+                                        {
+                                                print "PORT: " . $this->startingPort . PHP_EOL;
+                                                $this->startingPort++;
 
-                                        $zmsg->body_set('success');
-                                        $zmsg->set_socket($this->frontend)->send();
+                                                $zmsg->body_set('success');
+                                                $zmsg->set_socket($this->frontend)->send();
+                                        }
+                                        else
+                                        {
+                                                $zmsg->body_set('failure');
+                                                $zmsg->set_socket($this->frontend)->send();
+                                        }
                                 }
                         }
                 }
@@ -88,6 +104,11 @@ class controller
                 print PHP_EOL . PHP_BINDIR . '/php /var/www/ffmpeg.php -i ' . $input . ' -id ' . $id . ' -p ' . $port . PHP_EOL;
                 $process = new Process(PHP_BINDIR . '/php /var/www/ffmpeg.php -i ' . $input . ' -id ' . $id . ' -p ' . $port);
                 print "PID: ".$process->pid . PHP_EOL;
+                if ($process->status())
+                {
+                        return $process->pid;
+                }
+                return false;
         }
 
 }

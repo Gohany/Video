@@ -3,6 +3,7 @@
         $id = !empty($_GET['id']) ? $_GET['id'] : 1;
         $_SESSION['currentId'] = $id;
         $_SESSION['pid'] = getmypid();
+        
 ?>
 <!DOCTYPE html>
 <html manifest="manifest.appcache">
@@ -27,7 +28,7 @@
         <body>
                 <div id="container1" class="draggable ui-widget-content">
                         <video id="video1" autoplay muted controls>
-                                <source src="http://127.0.0.2/vListen.php?id=<?=$id?>&sid=<?=session_id()?>">
+                                <source src="http://<?=$_SERVER['SERVER_ADDR']?>/vListen.php?id=<?=$id?>&sid=<?=session_id()?>">
                         </video>        
                 </div>
             <!--

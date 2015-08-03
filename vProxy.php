@@ -91,10 +91,12 @@ class zmqProxy
                                         {
                                                 print "NEW PORT REQUEST" . PHP_EOL;
                                                 $this->zmsg->recv();
-                                                print $this->zmsg->body() . PHP_EOL;
+                                                $address = $this->zmsg->unwrap();
+                                                $port = $this->zmsg->pop();
+                                                $id = $this->zmsg->pop();
                                                 // do stuff
                                                 $this->registerBackend($this->zmsg->body());
-                                                $this->zmsg->body_set('success');
+                                                $this->zmsg->body_set('success')->wrap($address);
                                                 $this->zmsg->send(true);
                                         }
                                 }
