@@ -1,20 +1,28 @@
 <?php
 
-require_once 'zmsg.php';
-
-$id = 1;
+require_once 'includes.php';
 $client = new client;
-$client->request($id);
-
+if (!$_GET['sid'])
+{
+        $id = 1;
+        $client->request($id);
+}
+else
+{
+        $client->command('all', clientCommands::CMD_CHANGE_CHANNEL . ' 2');
+}
 class client
 {
 
         public $context;
         public $client;
+        public $command;
         public $identity;
         public $poll;
+        public $session;
         
         const ZMQ_SERVICE_PORT = 6200;
+        const ZMQ_COMMAND_PORT = 8101;
 
         public function __construct()
         {
@@ -29,6 +37,19 @@ class client
 
                 $this->poll = new ZMQPoll();
                 $this->poll->add($this->client, ZMQ::POLL_IN);
+                
+                if (!empty($_GET['sid']))
+                {
+                        $this->session = new session($_GET['sid']);
+                        $this->command = new ZMQSocket($this->context, ZMQ::SOCKET_PUB);
+                        $this->command->bind("tcp://*:" . self::ZMQ_COMMAND_PORT);
+                }
+                
+        }
+        
+        public function command($who, $what)
+        {
+                $this->command->send($who . $what);
         }
 
         public function request($id)
@@ -46,7 +67,8 @@ class client
                         if ($events)
                         {
                                 $zmsg->recv();
-                                printf("%s: %s%s", $this->identity, $zmsg->body(), PHP_EOL);
+                                var_dump($zmsg);
+                                //printf("%s: %s%s", $this->identity, $zmsg->body(), PHP_EOL);
                                 break;
                         }
                 }

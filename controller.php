@@ -1,6 +1,6 @@
 <?php
 
-require_once 'zmsg.php';
+require_once 'includes.php';
 
 $controller = new controller;
 $controller->run();
@@ -26,6 +26,7 @@ class controller
         public $startingPort = 6400;
         public $workers;
         public $requests;
+        public $feeds;
 
         public function __construct()
         {
@@ -59,10 +60,15 @@ class controller
                                         print "REQUEST: " . $request . PHP_EOL;
                                         // do mysql stuff
                                         
-                                        
+                                        if (!is_numeric($request) || !($this->feeds[$request] = feed::fromID($request)))
+                                        {
+                                                $zmsg->body_set('failure')->send();
+                                        }
                                         
                                         $port = $this->startingPort;
-
+                                        $this->feeds[$request]->port = $port;
+                                        $this->feeds[$request]->update();
+                                        
                                         print "PORT: " . $port . PHP_EOL;
                                         $zmsg->push($request);
                                         $zmsg->push($port);
@@ -70,19 +76,25 @@ class controller
                                         //$zmsg->body_set($port);
                                         //$zmsg->push($request);
                                         $zmsg->set_socket($this->backend)->send();
+                                        
                                 }
                                 elseif ($socket === $this->backend)
                                 {
                                         // if good.. update mysql
                                         // start container logic
                                         // stuff
+                                        var_dump($zmsg);
                                         $address = $zmsg->unwrap();
                                         print "ADDRESS: ".$address . PHP_EOL;
+                                        $id = $zmsg->pop();
+                                        print "ID: ".$id.PHP_EOL;
                                         $reply = $zmsg->body();
                                         print "REPLY: " . $reply . PHP_EOL;
                                         // update mysql
-                                        if ($pid = $this->startFFMPEG('/var/www/h264.mp4', 1, $this->startingPort))
+                                        if (!empty($this->feeds[$id]) && ($pid = $this->startFFMPEG('/var/www/h264.mp4', $id, $this->startingPort)))
                                         {
+                                                
+                                                $this->feeds[$id]->startFeed($pid);
                                                 print "PORT: " . $this->startingPort . PHP_EOL;
                                                 $this->startingPort++;
 

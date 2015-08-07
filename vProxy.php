@@ -60,10 +60,6 @@ class zmqProxy
 
         public function run()
         {
-                $message = [
-                    'backend' => '',
-                    'instructions' => '',
-                ];
                 $readable = $writeable = array();
                 while (true)
                 {
@@ -77,13 +73,12 @@ class zmqProxy
                                         if ($socket === $this->backend)
                                         {
                                                 //  Process all parts of the message
-                                                $message['backend'] .= $this->backend->recv();
+                                                $message= $this->backend->recv();
                                                 //  Multipart detection
                                                 $more = $this->backend->getSockOpt(ZMQ::SOCKOPT_RCVMORE);
-                                                $this->frontend->send($message['backend'], $more ? ZMQ::SOCKOPT_SNDMORE : 0);
+                                                $this->frontend->send($message, $more ? ZMQ::SOCKOPT_SNDMORE : 0);
                                                 if (!$more)
                                                 {
-                                                        $message['backend'] = '';
                                                         break; // Last message part
                                                 }
                                         }
@@ -93,9 +88,8 @@ class zmqProxy
                                                 $this->zmsg->recv();
                                                 $address = $this->zmsg->unwrap();
                                                 $port = $this->zmsg->pop();
-                                                $id = $this->zmsg->pop();
                                                 // do stuff
-                                                $this->registerBackend($this->zmsg->body());
+                                                $this->registerBackend($port);
                                                 $this->zmsg->body_set('success')->wrap($address);
                                                 $this->zmsg->send(true);
                                         }
