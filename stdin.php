@@ -6,6 +6,7 @@ class stdin
             '-i' => 'input',
             '-id' => 'id',
             '-p' => 'port',
+            '-sid' => 'sid',
         ];
         
         public function __construct()

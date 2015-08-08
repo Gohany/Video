@@ -2,15 +2,19 @@
 
 require_once 'includes.php';
 $client = new client;
-if (!$_GET['sid'])
+
+$stdin = new stdin();
+
+if (!isset($stdin->sid) && empty($stdin->sid))
 {
-        $id = 1;
+        $id = $stdin->id;
         $client->request($id);
 }
 else
 {
-        $client->command('all', clientCommands::CMD_CHANGE_CHANNEL . ' 2');
+        $client->command('all', clientCommands::CMD_CHANGE_CHANNEL . ' mkv.2');
 }
+
 class client
 {
 
@@ -49,7 +53,13 @@ class client
         
         public function command($who, $what)
         {
-                $this->command->send($who . $what);
+                $this->command = new ZMQSocket($this->context, ZMQ::SOCKET_PUB);
+                $this->command->bind("tcp://*:" . self::ZMQ_COMMAND_PORT);
+//                while (true)
+//                {
+                        sleep(2);
+                        $this->command->send($who . $what);
+//                }
         }
 
         public function request($id)
@@ -67,8 +77,7 @@ class client
                         if ($events)
                         {
                                 $zmsg->recv();
-                                var_dump($zmsg);
-                                //printf("%s: %s%s", $this->identity, $zmsg->body(), PHP_EOL);
+                                printf("%s: %s%s", $this->identity, $zmsg->body(), PHP_EOL);
                                 break;
                         }
                 }

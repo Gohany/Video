@@ -91,7 +91,7 @@ class controller
                                         $reply = $zmsg->body();
                                         print "REPLY: " . $reply . PHP_EOL;
                                         // update mysql
-                                        if (!empty($this->feeds[$id]) && ($pid = $this->startFFMPEG('/var/www/h264.mp4', $id, $this->startingPort)))
+                                        if (!empty($this->feeds[$id]) && ($pid = $this->startFFMPEG($this->feeds[$id]->input, $id, $this->startingPort)))
                                         {
                                                 
                                                 $this->feeds[$id]->startFeed($pid);

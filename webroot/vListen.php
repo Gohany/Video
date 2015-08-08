@@ -1,7 +1,7 @@
 <?php
 
-require_once 'session.php';
-require_once 'clientCommands.php';
+require_once '../session.php';
+require_once '../clientCommands.php';
 
 try
 {
@@ -115,7 +115,6 @@ class clientVideoData
         {
                 if (!empty($this->{$socket.'Subscription'}) && in_array($subscription, $this->subscriptions[$socket]))
                 {
-                        
                         try
                         {
                                  $this->{$socket.'Subscription'}->setSockOpt(ZMQ::SOCKOPT_UNSUBSCRIBE, $subscription);
@@ -164,7 +163,7 @@ class clientVideoData
                         if (substr($packet, 0, strlen($subscription)) === $subscription)
                         {
                                 $data = substr($packet, strlen($subscription));
-                                $parts = explode($data, ' ');
+                                $parts = explode(' ', $data);
                                 switch ($parts[0])
                                 {
                                         case clientCommands::CMD_CHANGE_CHANNEL:
