@@ -15,27 +15,26 @@ catch (Exception $e)
 
 class clientVideo
 {
-        
+
         public $videoID;
         public $videoData;
         public $session;
-        
+
         public function __construct()
         {
-                
+
                 $this->videoID = !empty($_GET['id']) ? $_GET['id'] : 1;
                 $this->session = !empty($_GET['sid']) ? new session($_GET['sid']) : false;
                 //if ($this->session)
                 //{
-                        $this->videoData = new clientVideoData($this->videoID);
-                        if ($this->session)
-                        {
-                                $this->videoData->subscribe('command', $this->session->sessionId);
-                        }
+                $this->videoData = new clientVideoData($this->videoID);
+                if ($this->session)
+                {
+                        $this->videoData->subscribe('command', $this->session->sessionId);
+                }
                 //}
-                
         }
-        
+
         public function run()
         {
                 while (true)
@@ -46,82 +45,88 @@ class clientVideo
                         }
                 }
         }
-        
+
 }
 
 class clientVideoData
 {
-        
+
         public $containerSent = false;
+        public $switch = false;
         public $context;
         public $videoSubscription;
         public $commandSubscription;
+        public $unsubQueue;
+        public $subQueue;
         public $id;
         public $headerString;
         public $subscriptions = [
             'video' => [],
             'command' => [],
         ];
-        
+        public $unsubscriptions = [
+            'video' => [],
+            'command' => [],
+        ];
+
         const PROXY_PORT = 8100;
         const COMMAND_PORT = 8101;
         const VIDEO_PREFIX = 'mkv.';
         const VIDEO_HEADERS_DIR = '/var/www/';
-        
+
         public function __construct($id = 1)
         {
-                
+
                 $this->id = $id;
                 $this->context = new ZMQContext;
                 $this->videoSubscription = new ZMQSocket($this->context, ZMQ::SOCKET_SUB);
                 $this->videoSubscription->connect("tcp://localhost:" . self::PROXY_PORT);
                 $this->subscribe('video', 'mkv.' . $this->id);
-                
+
                 $this->commandSubscription = new ZMQSocket($this->context, ZMQ::SOCKET_SUB);
                 $this->commandSubscription->connect("tcp://localhost:" . self::COMMAND_PORT);
                 $this->subscribe('command', 'all');
-                
+
                 $this->poll = new ZMQPoll();
                 $this->poll->add($this->videoSubscription, ZMQ::POLL_IN);
                 $this->poll->add($this->commandSubscription, ZMQ::POLL_IN);
-                
+
                 $this->headerString = self::VIDEO_HEADERS_DIR . self::VIDEO_PREFIX . $this->id . '.header';
                 $this->header();
-                
         }
-        
+
         public function subscribe($socket, $subscription)
         {
-                if (!empty($this->{$socket.'Subscription'}))
+                if (!empty($this->{$socket . 'Subscription'}))
                 {
-                        
+
                         try
                         {
-                                 $this->{$socket.'Subscription'}->setSockOpt(ZMQ::SOCKOPT_SUBSCRIBE, $subscription);
+                                $this->{$socket . 'Subscription'}->setSockOpt(ZMQ::SOCKOPT_SUBSCRIBE, $subscription);
                         }
                         catch (ZMQSocketException $ex)
                         {
-                                throw new Exception ('Failed to subscribe to ' . $subscription . ' on socket ' . $socket);
+                                throw new Exception('Failed to subscribe to ' . $subscription . ' on socket ' . $socket);
                                 return false;
                         }
-                       
+
                         $this->subscriptions[$socket][] = $subscription;
                         return true;
                 }
                 return false;
         }
-        
+
         public function unsubscribe($socket, $subscription)
         {
-                if (!empty($this->{$socket.'Subscription'}) && in_array($subscription, $this->subscriptions[$socket]))
+                if (!empty($this->{$socket . 'Subscription'}) && in_array($subscription, $this->subscriptions[$socket]))
                 {
                         try
                         {
-                                 $this->{$socket.'Subscription'}->setSockOpt(ZMQ::SOCKOPT_UNSUBSCRIBE, $subscription);
+                                $this->{$socket . 'Subscription'}->setSockOpt(ZMQ::SOCKOPT_UNSUBSCRIBE, $subscription);
                         }
                         catch (ZMQSocketException $ex)
                         {
-                                throw new Exception ('Failed to unsubscribe to ' . $subscription . ' on socket ' . $socket);
+                                throw new Exception('Failed to unsubscribe to ' . $subscription . ' on socket ' . $socket);
                                 return false;
                         }
                         $key = array_search($subscription, $this->subscriptions[$socket]);
@@ -130,10 +135,10 @@ class clientVideoData
                 }
                 return false;
         }
-        
+
         public function run()
         {
-                
+
                 $readable = $writeable = array();
                 $events = $this->poll->poll($readable, $writeable);
                 if ($events > 0)
@@ -154,7 +159,7 @@ class clientVideoData
                 }
                 return true;
         }
-        
+
         public function doCommand()
         {
                 $packet = $this->commandSubscription->recv();
@@ -167,7 +172,7 @@ class clientVideoData
                                 switch ($parts[0])
                                 {
                                         case clientCommands::CMD_CHANGE_CHANNEL:
-                                                return $this->changeChannel($parts[1]);
+                                                return $this->changeInput($parts[1]);
                                                 break;
                                         case clientCommands::CMD_STOP:
                                                 return false;
@@ -182,7 +187,7 @@ class clientVideoData
                         }
                 }
         }
-        
+
         public function changeChannel($channel)
         {
                 foreach ($this->subscriptions['video'] as $sub)
@@ -193,10 +198,18 @@ class clientVideoData
                         }
                 }
                 $this->containerSent = false;
-                
+                $this->switch = false;
                 return $this->subscribe('video', $channel);
         }
-        
+
+        public function changeInput($subscription)
+        {
+                $this->subQueue['video'] = $subscription;
+                $this->switch = true;
+                $this->containerSent = false;
+                return true;
+        }
+
         public function printVideo()
         {
                 $packet = $this->videoSubscription->recv();
@@ -211,21 +224,28 @@ class clientVideoData
                                 }
                                 elseif ($data[0] === '1')
                                 {
-                                        print substr($data, 1);
-                                        $this->containerSent = true;
+                                        if ($this->switch === true && !empty($this->subQueue['video']))
+                                        {
+                                                return $this->changeChannel($this->subQueue['video']);
+                                        }
+                                        else
+                                        {
+                                                print substr($data, 1);
+                                                $this->containerSent = true;
+                                        }
                                 }
                         }
                 }
         }
-        
+
         public function waitForContainer()
         {
                 $this->containerSent = false;
         }
-        
+
         public function header()
         {
-                
+
                 $handle = fopen($this->headerString, 'r');
                 do
                 {
@@ -233,11 +253,11 @@ class clientVideoData
                 }
                 while ($wouldblock);
                 flock($handle, LOCK_UN);
-                
+
                 while (!feof($handle))
                 {
                         print fread($handle, 1024);
                 }
         }
-        
+
 }

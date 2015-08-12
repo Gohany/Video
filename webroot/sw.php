@@ -27,9 +27,20 @@
         </head>
         <body>
                 <div id="container1" class="draggable ui-widget-content">
-                        <video id="video1" autoplay muted controls>
+                        <video id="video1" preload="none" autoplay muted controls>
                                 <source src="http://<?=$_SERVER['SERVER_ADDR']?>/vListen.php?id=<?=$id?>&sid=<?=session_id()?>">
                         </video>        
+                </div>
+                <div>
+                        <script>
+                                function vidSwap(vidURL) {
+                                        var myVideo = document.getElementById('video1');
+                                        myVideo.src = vidURL;
+                                        myVideo.load();
+                                        myVideo.play();
+                                }
+                        </script>
+                        <a href="#" onClick='javascript:vidSwap("http://<?=$_SERVER['SERVER_ADDR']?>/vListen.php?id=<?=($id+1)?>&sid=<?=session_id()?>"); return false;'>Link</a>
                 </div>
             <!--
                 <div id="container2" class="draggable ui-widget-content">

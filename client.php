@@ -12,7 +12,7 @@ if (!isset($stdin->sid) && empty($stdin->sid))
 }
 else
 {
-        $client->command('all', clientCommands::CMD_CHANGE_CHANNEL . ' mkv.2');
+        $client->command('all', clientCommands::CMD_CHANGE_CHANNEL . ' mkv.' . $stdin->sid);
 }
 
 class client

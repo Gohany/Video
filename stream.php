@@ -92,7 +92,6 @@ class mkvStream
                 $this->zmqContext = new ZMQContext();
                 $this->zmqPublisher = $this->zmqContext->getSocket(ZMQ::SOCKET_PUB);
                 $this->zmqPublisher->bind("tcp://*:" . $this->zmqPublishPort);
-
                 $this->headerHandle = fopen('/var/www/mkv.' . $id . '.header', 'w');
                 flock($this->headerHandle, LOCK_EX);
                 

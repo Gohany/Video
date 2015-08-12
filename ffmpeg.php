@@ -1,7 +1,5 @@
 <?php
 
-//print "FFMPEG, BITCHES";
-//var_dump($argv);
 require_once 'stream.php';
 require_once 'stdin.php';
 
@@ -31,6 +29,8 @@ class ffmpeg
                 'loglevel' => 'panic',
                 'hide_banner',
                 'nostats',
+//                'y',
+//                're',
             ],
             'output' => [
                 'map_metadata' => '-1',
@@ -42,6 +42,12 @@ class ffmpeg
                 'keyint_min' => '15',
                 'g' => '7',
                 'c:a' => 'libvorbis',
+                'ar' => '44100',
+                'ab' => '128k',
+                'ac' => '1',
+                'async' => '1',
+//                'aframes' => '25',
+//                'sample_fmt' => 'u8',
                 'f' => 'webm',
             ],
         ];
