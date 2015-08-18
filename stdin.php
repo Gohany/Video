@@ -7,6 +7,8 @@ class stdin
             '-id' => 'id',
             '-p' => 'port',
             '-sid' => 'sid',
+            '-c' => 'cmd',
+            '-w' => 'who',
         ];
         
         public function __construct()

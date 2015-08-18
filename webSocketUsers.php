@@ -12,6 +12,8 @@ class WebSocketUser
         public $sendingContinuous = false;
         public $partialMessage = "";
         public $hasSentClose = false;
+        public $sessionId;
+        public $tags = array();
 
         function __construct($id, $socket)
         {

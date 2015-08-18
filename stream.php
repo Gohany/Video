@@ -30,7 +30,7 @@ class fileHandle
                 $data = substr(self::singleton()->bin, self::singleton()->position(), $size);
                 self::singleton()->position += $size;
 
-                if (self::singleton()->position() > 1500000)
+                if (self::singleton()->position() > 3000000)
                 {
 
                         if (defined("__DEBUG__") && __DEBUG__)
@@ -39,8 +39,8 @@ class fileHandle
                                 print "BIN LENGTH: " . strlen(self::singleton()->bin) . PHP_EOL;
                         }
 
-                        self::singleton()->bin = substr(self::singleton()->bin, 750000);
-                        self::singleton()->removed += 750000;
+                        self::singleton()->bin = substr(self::singleton()->bin, 1500000);
+                        self::singleton()->removed += 1500000;
 
                         if (defined("__DEBUG__") && __DEBUG__)
                         {

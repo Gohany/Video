@@ -16,7 +16,7 @@
                 <script type="text/javascript">
                         var socket;
                         function init() {
-                                var host = "ws://192.168.1.212:9000/echobot"; // SET THIS TO YOUR SERVER
+                                var host = "ws://192.168.2.6:9000/echobot"; // SET THIS TO YOUR SERVER
                                 try {
                                         socket = new WebSocket(host);
                                         log('WebSocket - status ' + socket.readyState);
