@@ -114,6 +114,14 @@ class ebmlUtil
         {
                 return self::ebmlEncodeElementName($name) . self::ebmlEncodeVarInt(strlen($content)) . $content;
         }
+        
+        public static function bitwiseAdd($x, $y)
+        {
+                if (bindec($y) == 0)
+                        return $x;
+                else
+                        return self::bitwiseAdd ($x ^ $y, ($x & $y) << 1);
+        }
 
 }
 

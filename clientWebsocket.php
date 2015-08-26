@@ -1,5 +1,10 @@
 #!/usr/bin/env php
 <?php
+
+// INTERNAL NETWORK.... LIKE BEFORE
+// fuckin EVERY TV THAT HAS THE POSSIBILITY OF PLAYING THE VIDEO NEEDS TO START LISTENING BEFORE THE BROADCAST. DO THIS DYNAMICALLY.
+// they will all catch the broadcast.
+
 require_once('websockets.php');
 require_once('includes.php');
 
@@ -11,6 +16,7 @@ class clientWS extends WebSocketServer
         public $poll;
         public $zmsg;
         public $context;
+        public $times;
 
         const ZMQ_INSTRUCTION_PORT = 'clientInstruction';
         const TIMEOUT = '100';
@@ -71,17 +77,32 @@ class clientWS extends WebSocketServer
 
         protected function process($user, $message)
         {
-                $this->send($user, $message);
+                
+                $explode = explode('|', $message);
+                $video = $explode[0];
+                $time = $explode[1];
+                
+                $this->times[$video][$user->id] = $time;
+                
+                var_dump($this->times);
+                $this->send($user, 'ack');
         }
 
         protected function connected($user)
         {
-                
+                $this->send($user, "sync|" . min($this->times[5]));
         }
 
         protected function closed($user)
         {
-                
+                print "PROCESSING CLOSED FOR ".$user->id . PHP_EOL;
+                foreach ($this->times as $video => $array)
+                {
+                        if (isset($array[$user->id]))
+                        {
+                                unset($this->times[$video][$user->id]);
+                        }
+                }
         }
 
 }

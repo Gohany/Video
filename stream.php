@@ -80,10 +80,15 @@ class mkvStream
         public $headerHandle;
         public $pastHeader = false;
         public $id;
+        public $timestart;
+        public $previousTimecode;
+        public $timeSent;
+        
+        const RATE_LIMIT = false;
 
         public function __construct($id, $port, $fileHandle)
         {
-                
+                //print "STARTING READER" . PHP_EOL;
                 $reader = new EBMLReader($fileHandle);
                 $root = new EBMLElementList('root', $reader, 0, '');
                 
@@ -134,7 +139,63 @@ class mkvStream
 
                                         if ($this->pastHeader === true)
                                         {
-                                                $this->zmqPublisher->send($this->publishString . 0 . $element->_head . $element->_content->readAll());
+                                                
+                                                if (self::RATE_LIMIT === true && $element->name() == 'Timecode')
+                                                {
+                                                        
+                                                        $timecode = ebmlUtil::ebmlDecodeInt($element->_content->readAll());
+                                                        if (empty($this->timestart))
+                                                        {
+                                                                $microtime = microtime(true);
+                                                                $beginningOfHour = mktime(date('H'), 0, 0);
+                                                                $this->timestart = (int) round(($microtime - $beginningOfHour) * 1000);
+                                                                $content = (int) ($timecode + $this->timestart);
+                                                        }
+                                                        elseif (isset($this->previousTimecode))
+                                                        {
+                                                                $content = (int) ($timecode + $this->timestart);
+                                                                $videoTimeSegment = $content - $this->previousTimecode;
+                                                                //print "VIDEO TIME SEGMENT: " . $videoTimeSegment . PHP_EOL;
+                                                                $timeSince = (microtime(true) - $this->timeSent);
+                                                                
+                                                                //print "TIME SINCE: " . $timeSince . PHP_EOL;
+                                                                
+                                                                if ($videoTimeSegment > $timeSince)
+                                                                {
+                                                                        $sleep = ($videoTimeSegment - $timeSince) * 1000;
+                                                                        //print "SLEEPING: " . $sleep . PHP_EOL;
+                                                                        usleep($sleep);
+                                                                }
+                                                                
+                                                        }
+                                                        else
+                                                        {
+                                                                $content = (int) ($timecode + $this->timestart);
+                                                        }
+                                                        
+                                                        //print "TIMECODE: " . $content . PHP_EOL;
+                                                        //print "PREVIOUS TIMECODE: " . $this->previousTimecode . PHP_EOL;
+                                                        $timestampValue = pack('N', $content);
+                                                        $timecode = ebmlUtil::ebmlEncodeElement('Timecode', $timestampValue);
+                                                        $this->zmqPublisher->send($this->publishString . 0 . $timecode);
+                                                        $this->previousTimecode = $content;
+                                                        $this->timeSent = microtime(true);
+                                                }
+                                                else
+                                                {
+                                                        
+//                                                        if ($element->name() == 'Timecode')
+//                                                        {
+//                                                                $prefix = str_pad(ebmlUtil::ebmlDecodeInt($element->_content->readAll()), 7, '0', STR_PAD_LEFT);
+//                                                        }
+//                                                        else
+//                                                        {
+//                                                                $prefix = '0000000';
+//                                                        }
+                                                        
+                                                        //$this->zmqPublisher->send($this->publishString . $prefix . 0 . $element->_head . $element->_content->readAll());
+                                                        $this->zmqPublisher->send($this->publishString . 0 . $element->_head . $element->_content->readAll());
+                                                }
                                         }
                                         else
                                         {

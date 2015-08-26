@@ -35,7 +35,7 @@ class ffmpeg
             'output' => [
                 'map_metadata' => '-1',
                 'c:v' => 'libvpx',
-                'vf' => 'scale=-1:320',
+                //'vf' => 'scale=-1:320',
                 'deadline' => 'good',
                 'crf' => '7',
                 'b:v' => '500k',

@@ -78,10 +78,15 @@ class clientVideoData
         {
 
                 $this->id = $id;
+                
+                $this->headerString = self::VIDEO_HEADERS_DIR . self::VIDEO_PREFIX . $this->id . '.header';
+                $this->header();
+                
                 $this->context = new ZMQContext;
                 $this->videoSubscription = new ZMQSocket($this->context, ZMQ::SOCKET_SUB);
-                $this->videoSubscription->connect("tcp://localhost:" . self::PROXY_PORT);
                 $this->subscribe('video', 'mkv.' . $this->id);
+                $this->videoSubscription->connect("tcp://localhost:" . self::PROXY_PORT);
+                
 
                 $this->commandSubscription = new ZMQSocket($this->context, ZMQ::SOCKET_SUB);
                 $this->commandSubscription->connect("tcp://localhost:" . self::COMMAND_PORT);
@@ -90,9 +95,7 @@ class clientVideoData
                 $this->poll = new ZMQPoll();
                 $this->poll->add($this->videoSubscription, ZMQ::POLL_IN);
                 $this->poll->add($this->commandSubscription, ZMQ::POLL_IN);
-
-                $this->headerString = self::VIDEO_HEADERS_DIR . self::VIDEO_PREFIX . $this->id . '.header';
-                $this->header();
+                
         }
 
         public function subscribe($socket, $subscription)
@@ -106,6 +109,7 @@ class clientVideoData
                         }
                         catch (ZMQSocketException $ex)
                         {
+                                var_dump($ex);
                                 throw new Exception('Failed to subscribe to ' . $subscription . ' on socket ' . $socket);
                                 return false;
                         }

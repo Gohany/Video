@@ -17,8 +17,8 @@ $_SESSION['pid'] = getmypid();
                 <link href="video-js.css" rel="stylesheet" type="text/css">
                 <!-- video.js must be in the <head> for older IEs to work. -->
                 <script src="video.js"></script>
-                <script src="//code.jquery.com/jquery-1.10.2.js"></script>
-                <script src="//code.jquery.com/ui/1.11.4/jquery-ui.js"></script>
+                <script src="http://code.jquery.com/jquery-1.10.2.js"></script>
+                <script src="http://code.jquery.com/ui/1.11.4/jquery-ui.js"></script>
                 <style>
                         .draggable {
                                 float:left;
@@ -48,8 +48,53 @@ $_SESSION['pid'] = getmypid();
                                 myVideo.load();
                                 myVideo.play();
                         }
+                        
+                        function swap(vidURL)
+                        {
+                                
+                                var vid1 = videojs('video1');
+                                var vid2 = videojs('video2');
+                                
+                                vid2.src(vidURL);
+                                vid2.loop(true);
+                                
+                                vid2.onerror = function()
+                                {
+                                        console.log(vid2.error);
+                                        vid2.load();
+                                        vid2.play();
+                                }
+                                
+                                vid2.load();
+                                vid2.play();
+                                
+                                vid2.on('loadeddata', function(){
+                                        document.getElementById('container2').style.display = "block";
+                                        document.getElementById('container1').style.display = "none";
+                                        vid1.pause();
+                                        vid2.muted(false);
+                                        vid1.dispose();
+                                });
+                                
+                        }
+                        
+                        function sync(time)
+                        {
+                                if (time)
+                                {
+                                        var vid = videojs('video1');
+                                        var difference = vid.currentTime() - time;
+                                        vid.pause();
+                                        console.log('PAUSING FOR ' + difference + ' SECONDS');
+                                        window.setTimeout(function(){
+                                                vid.play();
+                                                console.log('PLAYING..');
+                                        }, (difference * 1000));
+                                }
+                        }
 
                         var socket;
+                        socket.readyState = '0';
                         function init() {
                                 var host = "ws://192.168.2.6:9000/clientWS"; // SET THIS TO YOUR SERVER
                                 try {
@@ -57,15 +102,21 @@ $_SESSION['pid'] = getmypid();
                                         log('WebSocket - status ' + socket.readyState);
                                         socket.onopen = function (msg) {
                                                 log("Welcome - status " + this.readyState);
+                                                console.log("OPENING MESSAGE: " + msg);
+                                                log("MSG: " + msg);
                                         };
                                         socket.onmessage = function (msg) {
                                                 log("Received: " + msg.data);
-                                                console.log(msg);
+                                                //console.log(msg);
                                                 var commandSet = msg.data.split('|');
-                                                console.log(commandSet);
+                                                //console.log(commandSet);
                                                 if (commandSet[0] == 'swap')
                                                 {
-                                                        vidSwap(commandSet[1]);
+                                                        swap(commandSet[1]);
+                                                }
+                                                else if (commandSet[0] == 'sync')
+                                                {
+                                                        sync(commandSet[1]);
                                                 }
                                                 else
                                                 {
@@ -81,21 +132,19 @@ $_SESSION['pid'] = getmypid();
                                 }
                                 $("msg").focus();
                         }
-                        function send() {
-                                var txt, msg;
-                                txt = $("msg");
-                                msg = txt.value;
-                                if (!msg) {
-                                        alert("Message can not be empty");
-                                        return;
-                                }
-                                txt.value = "";
-                                txt.focus();
-                                try {
-                                        socket.send(msg);
-                                        log('Sent: ' + msg);
-                                } catch (ex) {
-                                        log(ex);
+                        function send(msg) {
+                                if (socket.readyState == '1')
+                                {
+                                        if (!msg) {
+                                                alert("Message can not be empty");
+                                                return;
+                                        }
+                                        try {
+                                                socket.send(msg);
+                                                log('Sent: ' + msg);
+                                        } catch (ex) {
+                                                log(ex);
+                                        }
                                 }
                         }
                         function quit() {
@@ -124,21 +173,26 @@ $_SESSION['pid'] = getmypid();
                 </script>
         </head>
         <body onload="init()">
-                <div id="container1" class="draggable ui-widget-content">
-                        <video id="video1" class="video-js vjs-default-skin" preload="none" autoplay controls height='320px' width='753px' data-setup="{}">
+                <div id="container1" style="position:absolute; left: 0px; top: 0px;">
+                        <video id="video1" class="video-js vjs-default-skin" preload="none" muted autoplay controls height='320px' width='753px' data-setup="{}">
                                 <source type='video/webm' src="http://<?= $_SERVER['SERVER_ADDR'] ?>/vListen.php?id=<?= $id ?>&sid=<?= session_id() ?>">
-                        </video>        
+                        </video>
+                </div>
+                <div id="container2" style="display:none; position:absolute; left: 0px; top: 0px;">
+                        <video id="video2" class="video-js vjs-default-skin" preload="none" muted controls height='320px' width='753px' data-setup="{}">
+                                <source type='video/webm' src="http://<?= $_SERVER['SERVER_ADDR'] ?>/vListen.php?id=<?= $id ?>&sid=<?= session_id() ?>">
+                        </video>
                 </div>
                 <div>
-                        <script>
-
-                        </script>
+                        
                         <div id="log"></div>
                         <div style="float:right;">
+                                
                                 <!--<input id="msg" type="textbox" onkeypress="onkey(event)"/>
                                 <button onclick="send()">Send</button>
                                 <button onclick="quit()">Quit</button>-->
-                                <button onclick="reconnect()">Reconnect</button>
+                                <button onclick="reconnect()">Reconnect</button><br />
+                                <a href="http://<?= $_SERVER['SERVER_ADDR'] ?>/vListen.php?id=<?= $id ?>&sid=<?= session_id() ?>">Download</a>
                         </div>
                 </div>
                 <!--
@@ -194,6 +248,11 @@ $_SESSION['pid'] = getmypid();
                                  }
                                  });
                                  */
+                        });
+                        var player = videojs('video1');
+                        player.on('timeupdate', function(){
+                                //console.log(player.currentTime());
+                                send("<?=$id?>|" + player.currentTime());
                         });
                 </script>
         </body>
