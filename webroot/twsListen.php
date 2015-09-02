@@ -96,14 +96,15 @@ $_SESSION['pid'] = getmypid();
                         var socket;
                         socket.readyState = '0';
                         function init() {
-                                var host = "ws://192.168.2.6:9000/clientWS"; // SET THIS TO YOUR SERVER
+                                var host = "ws://192.168.2.6:9000/tws"; // SET THIS TO YOUR SERVER
                                 try {
+                                        
                                         socket = new WebSocket(host);
                                         log('WebSocket - status ' + socket.readyState);
                                         socket.onopen = function (msg) {
                                                 log("Welcome - status " + this.readyState);
-                                                console.log("OPENING MESSAGE: " + msg);
-                                                log("MSG: " + msg);
+                                                console.log("OPENING MESSAGE: " + msg.data);
+                                                log("MSG: " + msg.data);
                                         };
                                         socket.onmessage = function (msg) {
                                                 log("Received: " + msg.data);
@@ -213,6 +214,42 @@ $_SESSION['pid'] = getmypid();
                     </div>
                 -->
                 <script>
+                        $(function () {
+                                $("#container1").draggable();
+                                //$("#container2").draggable();
+                                //$("#container3").draggable();
+                                //$("#container4").draggable();
+                                $("#container1").resizable({
+                                        aspectRatio: true,
+                                        resize: function (event, ui) {
+                                                $("#video1").width(ui.size.width);
+                                                $("#video1").height(ui.size.height);
+                                        }
+                                });
+                                /*
+                                 $("#container2").resizable({
+                                 aspectRatio: true,
+                                 resize: function(event, ui){
+                                 $("#video2").width(ui.size.width);
+                                 $("#video2").height(ui.size.height);
+                                 }
+                                 });
+                                 $("#container3").resizable({
+                                 aspectRatio: true,
+                                 resize: function(event, ui){
+                                 $("#video3").width(ui.size.width);
+                                 $("#video3").height(ui.size.height);
+                                 }
+                                 });
+                                 $("#container4").resizable({
+                                 aspectRatio: true,
+                                 resize: function(event, ui){
+                                 $("#video4").width(ui.size.width);
+                                 $("#video4").height(ui.size.height);
+                                 }
+                                 });
+                                 */
+                        });
                         var player = videojs('video1');
                         player.on('timeupdate', function(){
                                 //console.log(player.currentTime());

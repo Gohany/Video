@@ -42,6 +42,6 @@ class commandClient
         
 }
 
-$stdin = new stdin;
+$stdin =  stdin::input();
 $commandClient = new commandClient;
 $commandClient->send($stdin->cmd, $stdin->who);

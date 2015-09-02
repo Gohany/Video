@@ -5,7 +5,7 @@ require_once 'stdin.php';
 
 ob_start();
 
-$stdin = new stdin;
+$stdin =  stdin::input();
 if (!empty($stdin->input) && !empty($stdin->id) && !empty($stdin->port))
 {
         //$ffmpeg = new ffmpeg('rtsp://admin:*1234Hrs@192.168.2.15:554/11');
@@ -35,7 +35,7 @@ class ffmpeg
             'output' => [
                 'map_metadata' => '-1',
                 'c:v' => 'libvpx',
-                //'vf' => 'scale=-1:320',
+                'vf' => 'scale=-1:320',
                 'deadline' => 'good',
                 'crf' => '7',
                 'b:v' => '500k',

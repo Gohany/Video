@@ -3,7 +3,7 @@
 require_once 'includes.php';
 $client = new client;
 
-$stdin = new stdin();
+$stdin = stdin::input();
 
 if (!isset($stdin->sid) && empty($stdin->sid))
 {

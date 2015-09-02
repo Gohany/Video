@@ -15,6 +15,7 @@ class zmqSync
 
         const ZMQ_FRONTEND_PORT = 8100;
         const ZMQ_BACKEND_PORT = 5556;
+        const ZMQ_SYNC_PORT = 5557;
         const ZMQ_INSTRUCTION_PORT = 'backend';
 
         public $context;
@@ -24,6 +25,7 @@ class zmqSync
         public $poll;
         public $instructionService;
         public $cache;
+        public $syncService;
 
         public function __construct()
         {
@@ -34,17 +36,22 @@ class zmqSync
 
                 $this->frontend = new ZMQSocket($this->context, ZMQ::SOCKET_XPUB);
                 $this->frontend->bind("tcp://*:" . self::ZMQ_FRONTEND_PORT);
+                $this->frontend->setSockOpt(ZMQ::SOCKOPT_XPUB_VERBOSE, 1);
 
                 $this->backend->setSockOpt(ZMQ::SOCKOPT_SUBSCRIBE, "");
 
                 $this->instructionService = new ZMQSocket($this->context, ZMQ::SOCKET_DEALER);
                 $this->instructionService->connect("ipc://" . self::ZMQ_INSTRUCTION_PORT);
+                
+                $this->syncService = new ZMQSocket($this->context, ZMQ::SOCKET_REP);
+                $this->syncService->bind("tcp://*:" . self::ZMQ_SYNC_PORT);
 
                 $this->poll = new ZMQPoll();
                 $this->poll->add($this->backend, ZMQ::POLL_IN);
                 $this->poll->add($this->frontend, ZMQ::POLL_IN);
                 $this->poll->add($this->instructionService, ZMQ::POLL_IN);
-
+                $this->poll->add($this->syncService, ZMQ::POLL_IN);
+                
                 $this->zmsg = new Zmsg($this->instructionService);
         }
 
@@ -93,10 +100,20 @@ class zmqSync
                                         {
                                                 print "SENDING CACHE!" . PHP_EOL;
                                                 $message = $this->frontend->recv();
-                                                if (isset($this->cache[1]))
-                                                {
-                                                        $this->frontend->send($this->cache[1]);
-                                                }
+                                                var_dump($message);
+//                                                if (isset($this->cache[1]))
+//                                                {
+//                                                        $this->frontend->send($this->cache[1]);
+//                                                }
+                                        }
+                                        elseif ($socket === $this->syncService)
+                                        {
+                                                
+                                                $subscription = $this->syncService->recv();
+                                                print "NEW GUY: ".$subscription . PHP_EOL;
+                                                $this->syncService->send('rgr');
+                                                
+                                                
                                         }
                                         elseif ($socket === $this->instructionService)
                                         {

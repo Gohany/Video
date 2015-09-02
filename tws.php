@@ -1,68 +1,26 @@
+#!/usr/bin/env php
 <?php
 
-//require_once '../session.php';
-require_once '/var/www/clientCommands.php';
+// INTERNAL NETWORK.... LIKE BEFORE
+// fuckin EVERY TV THAT HAS THE POSSIBILITY OF PLAYING THE VIDEO NEEDS TO START LISTENING BEFORE THE BROADCAST. DO THIS DYNAMICALLY.
+// they will all catch the broadcast.
 
-try
+require_once('websockets.php');
+require_once('includes.php');
+
+class tWS extends WebSocketServer
 {
-        $clientVideo = new clientVideo;
-        $clientVideo->run();
-}
-catch (Exception $e)
-{
-        print "Exception: " . $e->getMessage() . PHP_EOL;
-}
-
-class clientVideo
-{
-
-        public $videoID;
-        public $videoData;
-        public $session;
-
-        public function __construct()
-        {
-
-                $this->videoID = !empty($_GET['id']) ? $_GET['id'] : 1;
-                //$this->session = !empty($_GET['sid']) ? new session($_GET['sid']) : false;
-                //if ($this->session)
-                //{
-                $this->videoData = new clientVideoData($this->videoID);
-                if ($this->session)
-                {
-                        $this->videoData->subscribe('command', $this->session->sessionId);
-                }
-                //}
-        }
-
-        public function run()
-        {
-                while (true)
-                {
-                        if (!$this->videoData->run())
-                        {
-                                return false;
-                        }
-                }
-                $this->videoData->__destruct();
-                exit;
-        }
-
-}
-
-class clientVideoData
-{
-
+        
         public $containerSent = false;
         public $switch = false;
         public $context;
         public $videoSubscription;
         public $commandSubscription;
-        public $syncService;
         public $unsubQueue;
         public $subQueue;
         public $id;
         public $headerString;
+        public $header = '';
         public $subscriptions = [
             'video' => [],
             'command' => [],
@@ -74,11 +32,10 @@ class clientVideoData
 
         const PROXY_PORT = 8100;
         const COMMAND_PORT = 8101;
-        
         const VIDEO_PREFIX = 'mkv.';
         const VIDEO_HEADERS_DIR = '/var/www/';
-
-        public function __construct($id = 1)
+        
+        public function __construct($id = 1, $addr, $port, $bufferLength = 2048)
         {
 
                 $this->id = $id;
@@ -87,14 +44,10 @@ class clientVideoData
                 $this->header();
                 
                 $this->context = new ZMQContext;
-                
                 $this->videoSubscription = new ZMQSocket($this->context, ZMQ::SOCKET_SUB);
-                //$this->videoSubscription->identity = sprintf("%04X", rand(0, 0x10000));
-                //$this->videoSubscription->setSockOpt(ZMQ::SOCKOPT_IDENTITY, $this->identity);
                 $this->subscribe('video', 'mkv.' . $this->id);
                 $this->videoSubscription->connect("tcp://localhost:" . self::PROXY_PORT);
-                //$this->videoSubscription->send(1);
-                //$this->videoSubscription->send('mkv.' . $this->id);
+                
 
                 $this->commandSubscription = new ZMQSocket($this->context, ZMQ::SOCKET_SUB);
                 $this->commandSubscription->connect("tcp://localhost:" . self::COMMAND_PORT);
@@ -104,16 +57,10 @@ class clientVideoData
                 $this->poll->add($this->videoSubscription, ZMQ::POLL_IN);
                 $this->poll->add($this->commandSubscription, ZMQ::POLL_IN);
                 
-                
-//                $this->syncService = $this->context->getSocket(ZMQ::SOCKET_REQ);
-//                $this->syncService->connect("tcp://localhost:" . self::ZMQ_SYNC_PORT);
-//                $this->syncService->send('1mkv.' . $this->id);
-//                
-//                $wait = $this->syncService->recv();
-//                $this->poll->add($this->syncService, ZMQ::POLL_OUT);
+                parent::__construct($addr, $port, $bufferLength);
                 
         }
-
+        
         public function subscribe($socket, $subscription)
         {
                 if (!empty($this->{$socket . 'Subscription'}))
@@ -155,32 +102,7 @@ class clientVideoData
                 }
                 return false;
         }
-
-        public function run()
-        {
-                
-                $readable = $writeable = array();
-                $events = $this->poll->poll($readable, $writeable, 100);
-                
-                if ($events > 0)
-                {
-                        foreach ($readable as $socket)
-                        {
-                                if ($socket === $this->videoSubscription)
-                                {
-                                        $this->printVideo();
-                                        return true;
-                                }
-                                elseif ($socket === $this->commandSubscription)
-                                {
-                                        // do stuff
-                                        return $this->doCommand();
-                                }
-                        }
-                }
-                return true;
-        }
-
+        
         public function doCommand()
         {
                 $packet = $this->commandSubscription->recv();
@@ -230,6 +152,29 @@ class clientVideoData
                 $this->containerSent = false;
                 return true;
         }
+        
+        protected function tick()
+        {
+                $readable = $writeable = array();
+                $events = $this->poll->poll($readable, $writeable, 100);
+                if ($events > 0)
+                {
+                        foreach ($readable as $socket)
+                        {
+                                if ($socket === $this->videoSubscription)
+                                {
+                                        $this->printVideo();
+                                        return true;
+                                }
+                                elseif ($socket === $this->commandSubscription)
+                                {
+                                        // do stuff
+                                        return $this->doCommand();
+                                }
+                        }
+                }
+                return true;
+        }
 
         public function printVideo()
         {
@@ -241,7 +186,8 @@ class clientVideoData
                                 $data = substr($packet, strlen($subscription));
                                 if ($this->containerSent === true)
                                 {
-                                        print substr($data, 1);
+                                        //print substr($data, 1);
+                                        $this->sendAll(substr($data, 1));
                                 }
                                 elseif ($data[0] === '1')
                                 {
@@ -251,11 +197,49 @@ class clientVideoData
                                         }
                                         else
                                         {
-                                                print substr($data, 1);
+                                                $this->sendAll(substr($data, 1));
                                                 $this->containerSent = true;
                                         }
                                 }
                         }
+                }
+        }
+        
+        protected function process($user, $message)
+        {
+                
+                $explode = explode('|', $message);
+                $video = $explode[0];
+                $time = $explode[1];
+                
+                $this->times[$video][$user->id] = $time;
+                
+                var_dump($this->times);
+                $this->send($user, 'ack');
+        }
+        
+        protected function closed($user)
+        {
+                print "PROCESSING CLOSED FOR ".$user->id . PHP_EOL;
+                foreach ($this->times as $video => $array)
+                {
+                        if (isset($array[$user->id]))
+                        {
+                                unset($this->times[$video][$user->id]);
+                        }
+                }
+        }
+        
+        protected function connected($user)
+        {
+                $this->send($user, $this->header);
+        }
+        
+        public function sendAll($data)
+        {
+                foreach ($this->users as $user)
+                {
+                        $this->send($user, $data);
                 }
         }
 
@@ -263,10 +247,9 @@ class clientVideoData
         {
                 $this->containerSent = false;
         }
-
+        
         public function header()
         {
-
                 $handle = fopen($this->headerString, 'r');
                 do
                 {
@@ -277,8 +260,18 @@ class clientVideoData
 
                 while (!feof($handle))
                 {
-                        print fread($handle, 1024);
+                        $this->header .= fread($handle, 1024);
                 }
         }
+        
+}
 
+$echo = new tWS(1, "0.0.0.0", "9000");
+try
+{
+        $echo->run();
+}
+catch (Exception $e)
+{
+        $echo->stdout($e->getMessage());
 }

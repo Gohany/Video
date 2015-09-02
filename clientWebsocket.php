@@ -17,9 +17,13 @@ class clientWS extends WebSocketServer
         public $zmsg;
         public $context;
         public $times;
+        public $syncService;
 
         const ZMQ_INSTRUCTION_PORT = 'clientInstruction';
         const TIMEOUT = '100';
+        const ZMQ_SYNC_PORT = 5557;
+        const WHO_ALL = 'all';
+        const WHO_ID = 'id';
 
         public function __construct($addr, $port, $bufferLength = 2048)
         {
@@ -28,12 +32,17 @@ class clientWS extends WebSocketServer
                 $this->instructionService = new ZMQSocket($this->context, ZMQ::SOCKET_ROUTER);
                 $this->instructionService->connect("ipc://" . self::ZMQ_INSTRUCTION_PORT);
 
+                $this->zmsg = new Zmsg($this->instructionService);
+                
+                $this->syncService = $this->context->getSocket(ZMQ::SOCKET_REQ);
+                $this->syncService->connect("tcp://localhost:" . self::ZMQ_SYNC_PORT);
+                
                 $this->poll = new ZMQPoll();
                 $this->poll->add($this->instructionService, ZMQ::POLL_IN);
-
-                $this->zmsg = new Zmsg($this->instructionService);
+                $this->poll->add($this->syncService, ZMQ::POLL_IN | ZMQ::POLL_OUT);
 
                 parent::__construct($addr, $port, $bufferLength);
+                
         }
 
         protected function tick()
@@ -68,10 +77,25 @@ class clientWS extends WebSocketServer
         public function doCommand($cmd, $who)
         {
                 print "DOING COMMAND" . PHP_EOL;
+                
+                switch ($cmd)
+                {
+                        case "":
+                                break;
+                }
+                
                 foreach ($this->users as $user)
                 {
                         $message = $cmd . '&rand=' . sprintf("%04X", rand(0, 0x10000));
                         $this->send($user, $message);
+                }
+        }
+        
+        public function play($who = self::WHO_ALL)
+        {
+                switch ($who)
+                {
+                        
                 }
         }
 
