@@ -73,7 +73,7 @@ class fileHandle
 class mkvStream
 {
 
-        public $zmqPublishPort = '5556';
+        public $zmqPublishPort = zmqPorts::DEFAULT_STREAM_PORT;
         public $zmqContext;
         public $zmqPublisher;
         public $publishString;
@@ -96,7 +96,7 @@ class mkvStream
                 $this->zmqPublishPort = $port;
                 $this->zmqContext = new ZMQContext();
                 $this->zmqPublisher = $this->zmqContext->getSocket(ZMQ::SOCKET_PUB);
-                $this->zmqPublisher->bind("tcp://*:" . $this->zmqPublishPort);
+                $this->zmqPublisher->bind(zmqPorts::DEFAULT_STREAM_PROTOCOL . "://*:" . $this->zmqPublishPort);
                 $this->headerHandle = fopen('/var/www/mkv.' . $id . '.header', 'w');
                 flock($this->headerHandle, LOCK_EX);
                 

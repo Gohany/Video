@@ -2,45 +2,44 @@
 
 require_once 'includes.php';
 
-$controller = new controller;
+$controller = new vController;
 $controller->run();
 
-class controller
+class vController
 {
 
-        // listen for REQs
-        // queue for logic
-        // peform logic
-        //      register everything with MySQL
-        //      req - rep to proxy, tell it new port
-        //      fork / start new container logic proc
-        //      update MySQL
-
-        const ZMQ_CLIENT_ROUTER_PORT = '6200';
-        const ZMQ_PROXY_DEALER_PORT = 'backend';
-
         public $context;
-        public $frontend;
-        public $backend;
+        public $clientSocket;
+        public $vSyncSocket;
+        public $websocketSocket;
         public $poll;
-        public $startingPort = 6400;
+        public $ports;
         public $workers;
         public $requests;
         public $feeds;
+        
+        const STARTING_PORT = 6400;
+        const CONCURRENT_PORTS = 100;
 
         public function __construct()
         {
 
                 $this->context = new ZMQContext();
-                $this->frontend = new ZMQSocket($this->context, ZMQ::SOCKET_ROUTER);
-                $this->backend = new ZMQSocket($this->context, ZMQ::SOCKET_DEALER);
-                $this->frontend->bind("tcp://*:" . self::ZMQ_CLIENT_ROUTER_PORT);
-                $this->backend->bind("ipc://" . self::ZMQ_PROXY_DEALER_PORT);
+                $this->clientSocket = new ZMQSocket($this->context, ZMQ::SOCKET_ROUTER);
+                $this->vSyncSocket = new ZMQSocket($this->context, ZMQ::SOCKET_DEALER);
+                $this->websocketSocket = new ZMQSocket($this->context, ZMQ::SOCKET_DEALER);
+                $this->clientSocket->bind(zmqPorts::CLIENT_CONTROLLER_PROTOCOL . "://*:" . zmqPorts::CLIENT_CONTROLLER_INSTRUCTION);
+                $this->vSyncSocket->bind(zmqPorts::CONTROLLER_VSYNC_PROTOCOL . "://" . zmqPorts::CONTROLLER_VSYNC_INSTRUCTION);
+                $this->websocketSocket->bind(zmqPorts::CONTROLLER_WEBSOCKET_PROTOCOL . "://" . zmqPorts::CONTROLLER_WEBSOCKET_INSTRUCTION);
 
                 //  Initialize poll set
                 $this->poll = new ZMQPoll();
-                $this->poll->add($this->frontend, ZMQ::POLL_IN);
-                $this->poll->add($this->backend, ZMQ::POLL_IN);
+                $this->poll->add($this->clientSocket, ZMQ::POLL_IN);
+                $this->poll->add($this->vSyncSocket, ZMQ::POLL_IN);
+                $this->poll->add($this->websocketSocket, ZMQ::POLL_IN | ZMQ::POLL_OUT);
+                
+                $this->ports = array_fill(self::STARTING_PORT, self::CONCURRENT_PORTS, 1);
+                
         }
 
         public function run()
@@ -54,7 +53,7 @@ class controller
                         {
                                 $zmsg = new Zmsg($socket);
                                 $zmsg->recv();
-                                if ($socket === $this->frontend)
+                                if ($socket === $this->clientSocket)
                                 {
                                         $request = $zmsg->body();
                                         print "REQUEST: " . $request . PHP_EOL;
@@ -63,9 +62,18 @@ class controller
                                         if (!is_numeric($request) || !($this->feeds[$request] = feed::fromID($request)))
                                         {
                                                 $zmsg->body_set('failure')->send();
+                                                break;
                                         }
                                         
-                                        $port = $this->startingPort;
+                                        $port = array_search(1, $this->ports);
+                                        
+                                        if ($port === false)
+                                        {
+                                                $zmsg->body_set('failure')->send();
+                                                break;
+                                        }
+                                        
+                                        $this->ports[$port] = 0;
                                         $this->feeds[$request]->port = $port;
                                         $this->feeds[$request]->update();
                                         
@@ -75,10 +83,10 @@ class controller
                                         $zmsg->wrap(1234);
                                         //$zmsg->body_set($port);
                                         //$zmsg->push($request);
-                                        $zmsg->set_socket($this->backend)->send();
+                                        $zmsg->set_socket($this->vSyncSocket)->send();
                                         
                                 }
-                                elseif ($socket === $this->backend)
+                                elseif ($socket === $this->vSyncSocket)
                                 {
                                         // if good.. update mysql
                                         // start container logic
@@ -91,20 +99,21 @@ class controller
                                         $reply = $zmsg->body();
                                         print "REPLY: " . $reply . PHP_EOL;
                                         // update mysql
-                                        if (!empty($this->feeds[$id]) && ($pid = $this->startFFMPEG($this->feeds[$id]->input, $id, $this->startingPort)))
+                                        if (!empty($this->feeds[$id]) && ($pid = $this->startFFMPEG($this->feeds[$id]->input, $id, $this->feeds[$id]->port)))
                                         {
                                                 
                                                 $this->feeds[$id]->startFeed($pid);
-                                                print "PORT: " . $this->startingPort . PHP_EOL;
-                                                $this->startingPort++;
+                                                print "PORT: " . $this->feeds[$id]->port . PHP_EOL;
+                                                //$this->startingPort++;
 
                                                 $zmsg->body_set('success');
-                                                $zmsg->set_socket($this->frontend)->send();
+                                                $zmsg->set_socket($this->clientSocket)->send();
                                         }
                                         else
                                         {
+                                                $this->ports[$this->feeds[$id]->port] = 1;
                                                 $zmsg->body_set('failure');
-                                                $zmsg->set_socket($this->frontend)->send();
+                                                $zmsg->set_socket($this->clientSocket)->send();
                                         }
                                 }
                         }
@@ -121,80 +130,6 @@ class controller
                         return $process->pid;
                 }
                 return false;
-        }
-
-}
-
-class Process
-{
-
-        public $pid;
-        public $command;
-
-        public function __construct($cl = false)
-        {
-                if ($cl != false)
-                {
-                        $this->command = $cl;
-                        $this->runCom();
-                }
-        }
-
-        private function runCom()
-        {
-                $command = 'nohup ' . $this->command . ' > /dev/null 2>&1 & echo $!';
-                exec($command, $op);
-                $this->pid = (int) $op[0];
-        }
-
-        public function setPid($pid)
-        {
-                $this->pid = $pid;
-        }
-
-        public function getPid()
-        {
-                return $this->pid;
-        }
-
-        public function status()
-        {
-                $command = 'ps -p ' . $this->pid;
-                exec($command, $op);
-                if (!isset($op[1]))
-                {
-                        return false;
-                }
-                else
-                {
-                        return true;
-                }
-        }
-
-        public function start()
-        {
-                if ($this->command != '')
-                {
-                        $this->runCom();
-                }
-                else
-                {
-                        return true;
-                }
-        }
-
-        public function stop()
-        {
-                $command = 'kill ' . $this->pid;
-                exec($command);
-                if ($this->status() == false)
-                {
-                        return true;
-                }
-                else
-                {
-                        return false;
-                }
         }
 
 }

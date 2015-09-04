@@ -2,6 +2,7 @@
 
 //require_once '../session.php';
 require_once '/var/www/clientCommands.php';
+require_once '/var/www/zmqPorts.php';
 
 try
 {
@@ -71,9 +72,6 @@ class clientVideoData
             'video' => [],
             'command' => [],
         ];
-
-        const PROXY_PORT = 8100;
-        const COMMAND_PORT = 8101;
         
         const VIDEO_PREFIX = 'mkv.';
         const VIDEO_HEADERS_DIR = '/var/www/';
@@ -92,12 +90,12 @@ class clientVideoData
                 //$this->videoSubscription->identity = sprintf("%04X", rand(0, 0x10000));
                 //$this->videoSubscription->setSockOpt(ZMQ::SOCKOPT_IDENTITY, $this->identity);
                 $this->subscribe('video', 'mkv.' . $this->id);
-                $this->videoSubscription->connect("tcp://localhost:" . self::PROXY_PORT);
+                $this->videoSubscription->connect(zmqPorts::PROXY_PORT_PROTOCOL . "://localhost:" . zmqPorts::PROXY_PORT);
                 //$this->videoSubscription->send(1);
                 //$this->videoSubscription->send('mkv.' . $this->id);
 
                 $this->commandSubscription = new ZMQSocket($this->context, ZMQ::SOCKET_SUB);
-                $this->commandSubscription->connect("tcp://localhost:" . self::COMMAND_PORT);
+                $this->commandSubscription->connect(zmqPorts::CLIENT_VLISTEN_PROTOCOL . "://localhost:" . zmqPorts::CLIENT_VLISTEN_INSTRUCTION);
                 $this->subscribe('command', 'all');
 
                 $this->poll = new ZMQPoll();

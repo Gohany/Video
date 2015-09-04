@@ -5,9 +5,6 @@ require_once 'includes.php';
 class commandClient
 {
         
-        
-        const ZMQ_WEBSOCKET_SERVER_PORT = 'clientInstruction';
-
         public $cmd;
         public $who;
         public $context;
@@ -19,7 +16,7 @@ class commandClient
 
                 $this->context = new ZMQContext();
                 $this->wsServer = new ZMQSocket($this->context, ZMQ::SOCKET_DEALER);
-                $this->wsServer->bind("ipc://" . self::ZMQ_WEBSOCKET_SERVER_PORT);
+                $this->wsServer->bind(zmqPorts::CLIENT_WEBSOCKET_PROTOCOL . "://" . zmqPorts::CLIENT_WEBSOCKET_INSTRUCTION);
 
                 //  Initialize poll set
                 $this->poll = new ZMQPoll();

@@ -18,10 +18,9 @@ class clientWS extends WebSocketServer
         public $context;
         public $times;
         public $syncService;
-
-        const ZMQ_INSTRUCTION_PORT = 'clientInstruction';
+        public $controllerSocket;
+        
         const TIMEOUT = '100';
-        const ZMQ_SYNC_PORT = 5557;
         const WHO_ALL = 'all';
         const WHO_ID = 'id';
 
@@ -30,12 +29,15 @@ class clientWS extends WebSocketServer
                 
                 $this->context = new ZMQContext();
                 $this->instructionService = new ZMQSocket($this->context, ZMQ::SOCKET_ROUTER);
-                $this->instructionService->connect("ipc://" . self::ZMQ_INSTRUCTION_PORT);
+                $this->instructionService->connect(zmqPorts::CLIENT_WEBSOCKET_PROTOCOL . "://" . zmqPorts::CLIENT_WEBSOCKET_INSTRUCTION);
 
                 $this->zmsg = new Zmsg($this->instructionService);
                 
-                $this->syncService = $this->context->getSocket(ZMQ::SOCKET_REQ);
-                $this->syncService->connect("tcp://localhost:" . self::ZMQ_SYNC_PORT);
+                $this->syncService = $this->context->getSocket(ZMQ::SOCKET_REP);
+                $this->syncService->connect("tcp://localhost:" . zmqPorts::VSYNC_WEBSOCKET_INSTRUCTION);
+                
+                $this->controllerSocket = ZMQSocket($this->context, ZMQ::SOCKET_ROUTER);
+                $this->controllerSocket->connect(zmqPorts::CONTROLLER_WEBSOCKET_PROTOCOL . "://" . zmqPorts::CONTROLLER_WEBSOCKET_INSTRUCTION);
                 
                 $this->poll = new ZMQPoll();
                 $this->poll->add($this->instructionService, ZMQ::POLL_IN);

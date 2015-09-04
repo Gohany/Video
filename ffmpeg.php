@@ -2,6 +2,7 @@
 
 require_once 'stream.php';
 require_once 'stdin.php';
+require_once 'includes.php';
 
 ob_start();
 

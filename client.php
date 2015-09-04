@@ -25,7 +25,6 @@ class client
         public $poll;
         public $session;
         
-        const ZMQ_SERVICE_PORT = 6200;
         const ZMQ_COMMAND_PORT = 8101;
 
         public function __construct()
@@ -36,7 +35,7 @@ class client
                 //  Generate printable identity for the client
                 $this->identity = sprintf("%04X", rand(0, 0x10000));
                 $this->client->setSockOpt(ZMQ::SOCKOPT_IDENTITY, $this->identity);
-                $this->client->connect("tcp://localhost:" . self::ZMQ_SERVICE_PORT);
+                $this->client->connect("tcp://localhost:" . zmqPorts::CLIENT_CONTROLLER_INSTRUCTION);
 
 
                 $this->poll = new ZMQPoll();
@@ -46,7 +45,7 @@ class client
                 {
                         $this->session = new session($_GET['sid']);
                         $this->command = new ZMQSocket($this->context, ZMQ::SOCKET_PUB);
-                        $this->command->bind("tcp://*:" . self::ZMQ_COMMAND_PORT);
+                        $this->command->bind(zmqPorts::CLIENT_VLISTEN_PROTOCOL . "://*:" . zmqPorts::CLIENT_VLISTEN_INSTRUCTION);
                 }
                 
         }
@@ -54,7 +53,7 @@ class client
         public function command($who, $what)
         {
                 $this->command = new ZMQSocket($this->context, ZMQ::SOCKET_PUB);
-                $this->command->bind("tcp://*:" . self::ZMQ_COMMAND_PORT);
+                $this->command->bind(zmqPorts::CLIENT_VLISTEN_PROTOCOL . "://*:" . zmqPorts::CLIENT_VLISTEN_INSTRUCTION);
 //                while (true)
 //                {
                         sleep(2);

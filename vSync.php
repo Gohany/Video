@@ -5,6 +5,7 @@ set_time_limit(0);
 ini_set('memory_limit', '1024M');
 
 require_once 'zmsg.php';
+require_once 'includes.php';
 
 $proxy = new zmqSync();
 //$proxy->registerBackend('5556');
@@ -12,11 +13,6 @@ $proxy->run();
 
 class zmqSync
 {
-
-        const ZMQ_FRONTEND_PORT = 8100;
-        const ZMQ_BACKEND_PORT = 5556;
-        const ZMQ_SYNC_PORT = 5557;
-        const ZMQ_INSTRUCTION_PORT = 'backend';
 
         public $context;
         public $frontend;
@@ -32,19 +28,20 @@ class zmqSync
                 $this->context = new ZMQContext();
 
                 $this->backend = new ZMQSocket($this->context, ZMQ::SOCKET_SUB);
-                $this->registerBackend(self::ZMQ_BACKEND_PORT);
+                $this->registerBackend(zmqPorts::DEFAULT_STREAM_PORT);
 
                 $this->frontend = new ZMQSocket($this->context, ZMQ::SOCKET_XPUB);
-                $this->frontend->bind("tcp://*:" . self::ZMQ_FRONTEND_PORT);
+                $this->frontend->bind(zmqPorts::PROXY_PORT_PROTOCOL . "://*:" . zmqPorts::PROXY_PORT);
                 $this->frontend->setSockOpt(ZMQ::SOCKOPT_XPUB_VERBOSE, 1);
 
                 $this->backend->setSockOpt(ZMQ::SOCKOPT_SUBSCRIBE, "");
 
                 $this->instructionService = new ZMQSocket($this->context, ZMQ::SOCKET_DEALER);
-                $this->instructionService->connect("ipc://" . self::ZMQ_INSTRUCTION_PORT);
+                
+                $this->instructionService->connect(zmqPorts::CONTROLLER_VSYNC_PROTOCOL . "://" . zmqPorts::CONTROLLER_VSYNC_INSTRUCTION);
                 
                 $this->syncService = new ZMQSocket($this->context, ZMQ::SOCKET_REP);
-                $this->syncService->bind("tcp://*:" . self::ZMQ_SYNC_PORT);
+                $this->syncService->bind("tcp://*:" . zmqPorts::VSYNC_WEBSOCKET_INSTRUCTION);
 
                 $this->poll = new ZMQPoll();
                 $this->poll->add($this->backend, ZMQ::POLL_IN);
@@ -55,7 +52,7 @@ class zmqSync
                 $this->zmsg = new Zmsg($this->instructionService);
         }
 
-        public function registerBackend($port, $ip = '127.0.0.1', $protocol = 'tcp')
+        public function registerBackend($port, $ip = '127.0.0.1', $protocol = zmqPorts::DEFAULT_STREAM_PROTOCOL)
         {
                 $networkString = trim($protocol) . '://' . trim($ip) . ':' . trim($port);
                 if (!in_array($networkString, $this->backends) && $this->backend->connect($networkString))
