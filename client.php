@@ -5,14 +5,22 @@ $client = new client;
 
 $stdin = stdin::input();
 
-if (!isset($stdin->sid) && empty($stdin->sid))
+try
 {
-        $id = $stdin->id;
-        $client->request($id);
+        if (!isset($stdin->sid) && empty($stdin->sid))
+        {
+                $id = $stdin->id;
+                $client->request($stdin->cmd, $stdin->id);
+        }
+        else
+        {
+                $client->command('all', clientCmd::CMD_CHANGE_CHANNEL . ' mkv.' . $stdin->sid);
+        }
 }
-else
+catch (Exception $e)
 {
-        $client->command('all', clientCommands::CMD_CHANGE_CHANNEL . ' mkv.' . $stdin->sid);
+        print $e->getMessage();
+        die;
 }
 
 class client
@@ -33,9 +41,9 @@ class client
                 $this->client = new ZMQSocket($this->context, ZMQ::SOCKET_DEALER);
 
                 //  Generate printable identity for the client
-                $this->identity = sprintf("%04X", rand(0, 0x10000));
+                $this->identity = 'cl' . getmypid();
                 $this->client->setSockOpt(ZMQ::SOCKOPT_IDENTITY, $this->identity);
-                $this->client->connect("tcp://localhost:" . zmqPorts::CLIENT_CONTROLLER_INSTRUCTION);
+                $this->client->connect(zmqPorts::CLIENT_CONTROLLER_PROTOCOL . "://localhost:" . zmqPorts::CLIENT_CONTROLLER_INSTRUCTION);
 
 
                 $this->poll = new ZMQPoll();
@@ -61,18 +69,22 @@ class client
 //                }
         }
 
-        public function request($id)
+        public function request($cmd, $id = null)
         {
-
+                
+                if (!defined('clientCmd::' . $cmd))
+                {
+                     throw new Exception("Undefined command");
+                }
+                
                 $zmsg = new Zmsg($this->client);
-                $zmsg->body_set($id);
+                $zmsg->set(constant('clientCmd::' . $cmd), $id, 'cmd');
                 $zmsg->send();
 
                 $read = $write = array();
                 while (true)
                 {
                         $events = $this->poll->poll($read, $write, 1000);
-                        $zmsg = new Zmsg($this->client);
                         if ($events)
                         {
                                 $zmsg->recv();

@@ -25,8 +25,11 @@ class zmqSync
 
         public function __construct()
         {
+                
+                $this->identity = 'vs' . getmypid();
+                
                 $this->context = new ZMQContext();
-
+                
                 $this->backend = new ZMQSocket($this->context, ZMQ::SOCKET_SUB);
                 $this->registerBackend(zmqPorts::DEFAULT_STREAM_PORT);
 
@@ -114,13 +117,15 @@ class zmqSync
                                         }
                                         elseif ($socket === $this->instructionService)
                                         {
+                                                // ADDRESS - CMD - ID - EXTRA
                                                 print "NEW PORT REQUEST" . PHP_EOL;
                                                 $this->zmsg->recv();
                                                 $address = $this->zmsg->unwrap();
                                                 $port = $this->zmsg->pop();
+                                                
                                                 // do stuff
                                                 $this->registerBackend($port);
-                                                $this->zmsg->body_set('success')->wrap($address);
+                                                $this->zmsg->body_set('success')->wrap($this->identity);
                                                 $this->zmsg->send(true);
                                         }
                                 }

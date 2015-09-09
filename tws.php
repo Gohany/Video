@@ -114,16 +114,16 @@ class tWS extends WebSocketServer
                                 $parts = explode(' ', $data);
                                 switch ($parts[0])
                                 {
-                                        case clientCommands::CMD_CHANGE_CHANNEL:
+                                        case clientCmd::CMD_CHANGE_CHANNEL:
                                                 return $this->changeInput($parts[1]);
                                                 break;
-                                        case clientCommands::CMD_STOP:
+                                        case clientCmd::CMD_STOP:
                                                 return false;
                                                 break;
-                                        case clientCommands::CMD_ADD_CHANNEL:
+                                        case clientCmd::CMD_ADD_CHANNEL:
                                                 return $this->subscribe('video', $parts[1]);
                                                 break;
-                                        case clientCommands::CMD_REMOVE_CHANNEL:
+                                        case clientCmd::CMD_REMOVE_CHANNEL:
                                                 return $this->unsubscribe('video', $parts[1]);
                                                 break;
                                 }

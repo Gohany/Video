@@ -140,6 +140,16 @@ class Zmsg
         {
                 return $this->_parts[count($this->_parts) - 1];
         }
+        
+        /**
+         * Return the parts of the mesage
+         * @return array
+         */
+        
+        public function extract()
+        {
+                return $this->_parts;
+        }
 
         /**
          * Set the last part of the message
@@ -199,6 +209,23 @@ class Zmsg
         public function push($part)
         {
                 array_unshift($this->_parts, $part);
+        }
+        
+        /*
+         * Set parts of the message
+         * @return void
+         */
+        
+        public function set()
+        {
+                $arguments = func_num_args();
+                if ($arguments > 0)
+                {
+                        foreach (array_reverse(func_get_args()) as $argument)
+                        {
+                                $this->push($argument);
+                        }
+                }
         }
 
         /**

@@ -16,3 +16,4 @@ require_once __BASE_DIR__ . 'session.php';
 require_once __BASE_DIR__ . 'stdin.php';
 require_once __BASE_DIR__ . 'zmqPorts.php';
 require_once __BASE_DIR__ . 'process.php';
+require_once __BASE_DIR__ . 'requests.php';
