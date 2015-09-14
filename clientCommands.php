@@ -23,6 +23,15 @@ class clientCmd
 class vSyncCmd
 {
         
-        const START_FFMPEG = 1;
+        const PUBLISH = 11;
+        const REMOVE_PORT = 12;
+        
+}
+
+class controlCmd
+{
+        const START_FFMPEG = 10;
+        const SUBSCRIBE = 13;
+        const REMOVE_PORT = 14;
         
 }

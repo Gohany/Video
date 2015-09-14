@@ -15,6 +15,10 @@ class vController
         public $workers;
         public $requests;
         public $feeds;
+        public $clientRequests;
+        public $vSyncRequests;
+        public $ffmpegs = array();
+        public $portRequests;
 
         const STARTING_PORT = 6400;
         const CONCURRENT_PORTS = 100;
@@ -45,45 +49,33 @@ class vController
                 $read = $write = array();
                 while (true)
                 {
-                        $this->poll->poll($read, $write);
+                        $this->poll->poll($read, $write, 1000);
                         foreach ($read as $socket)
                         {
                                 $zmsg = new Zmsg($socket);
                                 $zmsg->recv();
                                 if ($socket === $this->sockets['client'])
                                 {
-                                        $clientRequest = new clientRequest($zmsg, $this);
+                                        $this->clientRequests[$zmsg->address()] = new clientAction($zmsg, $this);
                                 }
                                 elseif ($socket === $this->sockets['vSync'])
                                 {
-                                        // if good.. update mysql
-                                        // start container logic
-                                        // stuff
-                                        var_dump($zmsg);
-                                        $address = $zmsg->unwrap();
-                                        print "ADDRESS: " . $address . PHP_EOL;
-                                        list($cmd, $id, $reply) = $zmsg->extract();
-                                        print "ID: " . $id . PHP_EOL;
-                                        print "REPLY: " . $reply . PHP_EOL;
-                                        // update mysql
-                                        if (!empty($this->feeds[$id]) && ($pid = $this->startFFMPEG($this->feeds[$id]->input, $id, $this->feeds[$id]->port)))
-                                        {
-
-                                                $this->feeds[$id]->startFeed($pid);
-                                                print "PORT: " . $this->feeds[$id]->port . PHP_EOL;
-                                                
-                                                $zmsg->body_set('success');
-                                                $zmsg->set_socket($this->sockets['client'])->wrap('lulz')->send(false);
-                                                var_dump($zmsg);
-                                        }
-                                        else
-                                        {
-                                                $this->ports[$this->feeds[$id]->port] = 1;
-                                                $zmsg->body_set('failure');
-                                                $zmsg->set_socket($this->sockets['client'])->send();
-                                        }
+                                        $this->vSyncRequests[$zmsg->address()] = new vSyncAction($zmsg, $this);
+                                        //$this->vSyncRequests[$zmsg->address()]->publishSuccess($this);
                                 }
                         }
+                        
+                        foreach ($this->ffmpegs as $port => $process)
+                        {
+                                if (!$process->status())
+                                {
+                                        $zmsg = new Zmsg($this->sockets['vSync']);
+                                        $zmsg->set(vSyncCmd::REMOVE_PORT, $port, 'cmd');
+                                        $zmsg->wrap(controllerAction::address());
+                                        $zmsg->send();
+                                }
+                        }
+                        
                 }
         }
 
@@ -94,6 +86,7 @@ class vController
                 print "PID: " . $process->pid . PHP_EOL;
                 if ($process->status())
                 {
+                        $this->ffmpegs[$port] = $process;
                         return $process->pid;
                 }
                 return false;

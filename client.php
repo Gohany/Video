@@ -80,11 +80,13 @@ class client
                 $zmsg = new Zmsg($this->client);
                 $zmsg->set(constant('clientCmd::' . $cmd), $id, 'cmd');
                 $zmsg->send();
-
+                
                 $read = $write = array();
                 while (true)
                 {
+                        print "whiling.. " . PHP_EOL;
                         $events = $this->poll->poll($read, $write, 1000);
+                        $zmsg = new Zmsg($this->client);
                         if ($events)
                         {
                                 $zmsg->recv();

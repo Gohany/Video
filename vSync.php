@@ -8,7 +8,6 @@ require_once 'zmsg.php';
 require_once 'includes.php';
 
 $proxy = new zmqSync();
-//$proxy->registerBackend('5556');
 $proxy->run();
 
 class zmqSync
@@ -31,16 +30,16 @@ class zmqSync
                 $this->context = new ZMQContext();
                 
                 $this->backend = new ZMQSocket($this->context, ZMQ::SOCKET_SUB);
-                $this->registerBackend(zmqPorts::DEFAULT_STREAM_PORT);
+                $this->backend->setSockOpt(ZMQ::SOCKOPT_SUBSCRIBE, "");
+                //$this->registerBackend(zmqPorts::DEFAULT_STREAM_PORT);
 
                 $this->frontend = new ZMQSocket($this->context, ZMQ::SOCKET_XPUB);
                 $this->frontend->bind(zmqPorts::PROXY_PORT_PROTOCOL . "://*:" . zmqPorts::PROXY_PORT);
                 $this->frontend->setSockOpt(ZMQ::SOCKOPT_XPUB_VERBOSE, 1);
 
-                $this->backend->setSockOpt(ZMQ::SOCKOPT_SUBSCRIBE, "");
+               
 
                 $this->instructionService = new ZMQSocket($this->context, ZMQ::SOCKET_DEALER);
-                
                 $this->instructionService->connect(zmqPorts::CONTROLLER_VSYNC_PROTOCOL . "://" . zmqPorts::CONTROLLER_VSYNC_INSTRUCTION);
                 
                 $this->syncService = new ZMQSocket($this->context, ZMQ::SOCKET_REP);
@@ -66,6 +65,25 @@ class zmqSync
                 }
                 return false;
         }
+        
+        public function disconnectBackend($port, $ip = '127.0.0.1', $protocol = zmqPorts::DEFAULT_STREAM_PROTOCOL)
+        {
+                $networkString = trim($protocol) . '://' . trim($ip) . ':' . trim($port);
+                
+                if (!in_array($networkString, $this->backends))
+                {
+                        return true;
+                }
+                
+                print "NETWORK STRING: " . $networkString . PHP_EOL;
+                if (in_array($networkString, $this->backends) && $this->backend->disconnect($networkString))
+                {
+                        unset($this->backends[array_search($networkString, $this->backends)]);
+                        print_r($this->backends);
+                        return true;
+                }
+                return false;
+        }
 
         public function run()
         {
@@ -83,13 +101,6 @@ class zmqSync
                                         {
                                                 //  Process all parts of the message
                                                 $this->cache[0] = $this->backend->recv();
-                                                //  Multipart detection
-                                                //$more = $this->backend->getSockOpt(ZMQ::SOCKOPT_RCVMORE);
-                                                //$this->frontend->send($this->cache, $more ? ZMQ::SOCKOPT_SNDMORE : 0);
-                                                //if (!$more)
-                                                //{
-                                                        //break; // Last message part
-                                                //}
                                                 if (isset($this->cache[1]))
                                                 {
                                                         $this->frontend->send($this->cache[1], 0);
@@ -101,10 +112,6 @@ class zmqSync
                                                 print "SENDING CACHE!" . PHP_EOL;
                                                 $message = $this->frontend->recv();
                                                 var_dump($message);
-//                                                if (isset($this->cache[1]))
-//                                                {
-//                                                        $this->frontend->send($this->cache[1]);
-//                                                }
                                         }
                                         elseif ($socket === $this->syncService)
                                         {
@@ -117,16 +124,11 @@ class zmqSync
                                         }
                                         elseif ($socket === $this->instructionService)
                                         {
-                                                // ADDRESS - CMD - ID - EXTRA
                                                 print "NEW PORT REQUEST" . PHP_EOL;
                                                 $this->zmsg->recv();
-                                                $address = $this->zmsg->unwrap();
-                                                $port = $this->zmsg->pop();
-                                                
-                                                // do stuff
-                                                $this->registerBackend($port);
-                                                $this->zmsg->body_set('success')->wrap($this->identity);
-                                                $this->zmsg->send(true);
+                                                var_dump($this->zmsg);
+                                                $controllerRequest = new controllerAction($this->zmsg, $this);
+                                                //$controllerRequest->subscribe($this);
                                         }
                                 }
                         }
