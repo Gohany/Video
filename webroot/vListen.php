@@ -1,8 +1,8 @@
 <?php
 
 //require_once '../session.php';
-require_once '/var/www/clientCommands.php';
-require_once '/var/www/zmqPorts.php';
+require_once '/var/www/lib/clientCommands.php';
+require_once '/var/www/lib/zmqPorts.php';
 
 try
 {

@@ -78,6 +78,33 @@ $_SESSION['pid'] = getmypid();
                                 
                         }
                         
+                        var addedVideos = 3;
+                        function addSource(url)
+                        {
+                                
+                                document.body.insertAdjacentHTML('afterbegin', "<div id='container"+addedVideos+"' style='display:none; position:absolute; left: 0px; top: 0px;'><video id='video"+addedVideos+"' class='video-js vjs-default-skin' preload='none' muted controls height='320px' width='753px' data-setup='{}'><source type='video/webm' src='"+url+"'></video></div>")
+                                
+                                var vid = videojs('video'+addedVideos);
+                                //vid.src(url);
+                                //vid.loop(true);
+                                vid.onerror = function()
+                                {
+                                        console.log(vid.error);
+                                        vid.load();
+                                        vid.play();
+                                }
+                                vid.load();
+                                vid.play();
+                                
+                                vid.on('loadeddata', function(){
+                                        document.getElementById('container'+addedVideos).style.display = "block";
+                                        document.getElementById('container'+addedVideos).style.top = "320px";
+                                        //vid.muted(false);
+                                        addedVideos++;
+                                });
+                                
+                        }
+                        
                         function sync(time)
                         {
                                 if (time)
@@ -117,6 +144,10 @@ $_SESSION['pid'] = getmypid();
                                                 else if (commandSet[0] == 'sync')
                                                 {
                                                         sync(commandSet[1]);
+                                                }
+                                                else if (commandSet[0] == '34')
+                                                {
+                                                        addSource(commandSet[1]);
                                                 }
                                                 else
                                                 {
