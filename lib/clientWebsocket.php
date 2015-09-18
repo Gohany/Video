@@ -92,6 +92,13 @@ class clientWS extends WebSocketServer
                 }
         }
         
+        public function runCommand($cmd, $data)
+        {
+                print "RUNNING : " . $cmd . PHP_EOL;
+                print "WITH DATA: " . PHP_EOL;
+                var_dump($data);
+        }
+        
         public function doCommand($cmd, $who)
         {
                 print "DOING COMMAND" . PHP_EOL;

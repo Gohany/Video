@@ -45,6 +45,18 @@ class cmd
                 return self::create($address, $cmd, $data);
         }
         
+        public static function fromType($object, $type)
+        {
+                foreach ($object->history as $history)
+                {
+                        if ($history['type'] == $type)
+                        {
+                                return self::create($history['address'], $history['cmd'], (array) $history['data']);
+                        }
+                }
+                return false;
+        }
+        
         public static function fromCMDHistory($object, $cmd)
         {
                 foreach ($object->history as $history)
@@ -166,6 +178,8 @@ class request
                 
                 switch ($this->cmd->cmd)
                 {
+                        // ADD SOURCE
+                        // 
                         case requestCmd::ADD_SOURCE:
                                 $this->wsAddSource($object);
                                 break;
@@ -194,7 +208,7 @@ class request
                                         $this->unsubscribe($object);
                                 }
                                 break;
-                        case requestCmd::START_FFMPEG:
+                        case requestCmd::START_ENCODE:
                                 $this->encode($object);
                                 break;
                         case requestCmd::SUBSCRIBE:
@@ -211,22 +225,57 @@ class request
                                 $this->startVideo($object);
                                 break;
                         case requestCmd::SUCCESS:
-                                
+                                $this->replyClient($object);
                                 break;
                         case requestCmd::STOP_DISPLAY:
                                 $this->stopVideo($object);
                                 break;
-                        case requestCmd::STOP_FFMPEG:
-                                $this->stopFFMPEG($object);
+                        case requestCmd::STOP_ENCODE:
+                                $this->stopEncoding($object);
                                 break;
                         case requestCmd::START_NEW_DISPLAY:
                                 $this->startVideo($object);
+                                break;
+                        case requestCmd::ADD_LAYER:
+                        case requestCmd::REMOVE_LAYER:
+                        case requestCmd::MOVE_LAYER:
+                                if ($object instanceof vController)
+                                {
+                                        $this->sendWebsocketCommand($object);
+                                }
+                                elseif ($object instanceof clientWS)
+                                {
+                                        $this->runWebsocketCommand($object);
+                                }
                                 break;
                 }
                 
         }
         
-        public function stopFFMPEG(vController $controller)
+        public function replyClient(vController $controller, $success = 'success')
+        {
+                if ($clientObject = cmd::fromType($this->cmd, 'client'))
+                {
+                        $this->cmd->push($clientObject->address, requestCmd::SUCCESS);
+                        $this->cmd->send($controller->sockets['client']);
+                }
+        }
+        
+        public function sendWebsocketCommand(vController $controller)
+        {
+                $this->cmd->push($controller->identity, $this->cmd, $this->cmd->data);
+                $this->cmd->send($controller->sockets['websocket']);
+        }
+        
+        public function runWebsocketCommand(clientWS $websocket)
+        {
+                $websocket->runCommand($this->cmd->cmd, $this->cmd->data);
+                $this->cmd->push($websocket->identity, requestCmd::SUCCESS);
+                $this->cmd->send($websocket->controllerSocket);
+        }
+        
+        
+        public function stopEncoding(vController $controller)
         {
                 $controller->stopFeed($this->cmd->data->id);
                 if ($firstCmd = cmd::firstCMD($this->cmd))
@@ -304,7 +353,7 @@ class request
         public function stopVideo(clientWS $websocket)
         {
                 $websocket->updateClients($this->cmd->data->targets, $this->cmd->cmd, $this->cmd->data->id);
-                $this->cmd->push($websocket->identity, requestCmd::STOP_FFMPEG, ['id' => $this->cmd->data->id]);
+                $this->cmd->push($websocket->identity, requestCmd::STOP_ENCODE, ['id' => $this->cmd->data->id]);
                 $this->cmd->send($websocket->controllerSocket);
         }
         
@@ -342,7 +391,7 @@ class request
         {
                 var_dump($this->cmd);
                 $vSync->registerBackend($this->cmd->data->port);
-                $this->cmd->push($vSync->identity, requestCmd::START_FFMPEG);
+                $this->cmd->push($vSync->identity, requestCmd::START_ENCODE);
                 $this->cmd->send($vSync->instructionService);
         }
         
