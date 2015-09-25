@@ -16,6 +16,7 @@ class stdin
             '-c' => 'cmd',
             '-w' => 'who',
             '-wb' => 'whoBy',
+            '-n' => 'node',
         ];
         protected static $inputs = [
         ];

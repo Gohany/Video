@@ -10,11 +10,20 @@ class client
         public $poll;
         public $session;
         
-        const ZMQ_COMMAND_PORT = 8101;
-        
         const ADDRESS_PREFIX = 'cl';
+        
+        public static function cmdNode($node)
+        {
+                
+                // lookup ip of node
+                // return new client object with ip of as construct argument
+                // do stuff? ez.
+                
+                $system = system::fromSystemNumber($node);
+                return new client($system->ip);
+        }
 
-        public function __construct()
+        public function __construct($ip = 'localhost')
         {
                 $this->context = new ZMQContext();
                 $this->client = new ZMQSocket($this->context, ZMQ::SOCKET_DEALER);
@@ -22,9 +31,8 @@ class client
                 //  Generate printable identity for the client
                 $this->identity = self::ADDRESS_PREFIX . getmypid();
                 $this->client->setSockOpt(ZMQ::SOCKOPT_IDENTITY, $this->identity);
-                $this->client->connect(zmqPorts::CLIENT_CONTROLLER_PROTOCOL . "://localhost:" . zmqPorts::CLIENT_CONTROLLER_INSTRUCTION);
-
-
+                $this->client->connect(zmqPorts::CLIENT_CONTROLLER_PROTOCOL . "://" . $ip . ":" . zmqPorts::CLIENT_CONTROLLER_INSTRUCTION);
+                
                 $this->poll = new ZMQPoll();
                 $this->poll->add($this->client, ZMQ::POLL_IN);
                 

@@ -12,11 +12,14 @@ $time = time();
 //socket_set_option($sock, SOL_SOCKET, SO_BROADCAST, 1);
 
 function sendHello($sock, $port)
+        
 {
         $broadcast_string = 'hello world!3';
         print "SENDING TO PORT: " . $port . PHP_EOL;
         socket_sendto($sock, $broadcast_string, strlen($broadcast_string), 0, '255.255.255.255', $port);
 }
+
+$connected = [];
 
 //$mcast_group = [
 //    'group' => '192.168.2.6',
@@ -38,10 +41,13 @@ while (true)
         //$port = 4444;
         print "RECEIVING.. " . PHP_EOL;
         print time() - $time . PHP_EOL;
+        
         socket_recvfrom($socket, $buf, 13, MSG_WAITALL, $from, $port);
-        echo "Received $buf from remote address $from and remote port $port" . PHP_EOL;
+        //echo "Received $buf from remote address $from and remote port $port" . PHP_EOL;
+        $connected[$from] = time();
         sendHello($socket, $port);
-        //sleep(1);
+        usleep(500000);
+        
         
         if (($errorcode = socket_last_error($socket)) || ($errorcode = socket_last_error($socket)))
         {
@@ -49,7 +55,10 @@ while (true)
                 print "ERR0R: " . $errormsg . PHP_EOL;
         }
         
-        
+        foreach ($connected as $who => $time)
+        {
+                print $who . " connected last: " . (time() - $time) . " seconds ago" . PHP_EOL;
+        }
         
 }
 

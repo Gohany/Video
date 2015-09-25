@@ -1,9 +1,10 @@
 <?php
 
 require_once 'includes.php';
-$client = new client;
 
 $stdin = stdin::input();
+
+$client = client::cmdNode($stdin->node);
 
 try
 {

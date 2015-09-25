@@ -22,3 +22,5 @@ require_once __BASE_DIR__ . 'lib/controller.php';
 require_once __BASE_DIR__ . 'lib/ebml.php';
 require_once __BASE_DIR__ . 'lib/ebmlElements.php';
 require_once __BASE_DIR__ . 'lib/stream.php';
+require_once __BASE_DIR__ . 'lib/discovery.php';
+require_once __BASE_DIR__ . 'lib/system.php';
