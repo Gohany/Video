@@ -39,6 +39,7 @@ class discovery
                 
                 $this->localIP = $matches[0];
                 $this->identity = $this->identity($this->localIP);
+                //$this->subnet = $matches[2];
                 
                 $this->context = new ZMQContext();
                 $this->pingIn = new ZMQSocket($this->context, ZMQ::SOCKET_SUB);
