@@ -9,20 +9,20 @@ class discovery
         public $subnet = '255.255.255.255';
         public $pingIn;
         public $pingOut;
+        public $macAddress;
+        public $nodes;
+        public $localIP;
         
         public $context;
         
         const SLEEP_TIME = 500000;
-        const IDENTITY_LENGTH = 12;
+        const IP_LENGTH = 12;
+        const MAC_ADDRESS_LENGTH = 17;
         const RUN_FOR_SECONDS = 59;
         const NETWORK_TIMEOUT_CHECK = 10;
         const MAX_NETWORK_TIMEOUT = 12;
         
         const CMD_CHECK_DC = '1';
-        
-        const DB = 'db1';
-        const SET_ACTIVE_MYSQL = "INSERT INTO video.activeNodes (ip, subnet, last_ping, active) VALUES (INET_ATON(:ip), INET_ATON(:subnet), :last_ping, :active) ON DUPLICATE KEY UPDATE last_ping = values(last_ping), active = values(active)";
-        const SET_INACTIVE_MYSQL = "INSERT INTO video.activeNodes (ip, subnet, active) VALUES (INET_ATON(:ip), INET_ATON(:subnet), '0') ON DUPLICATE KEY UPDATE active = values(active)";
 
         public function __construct()
         {
@@ -32,14 +32,10 @@ class discovery
                 socket_set_option($this->socket, SOL_SOCKET, SO_RCVTIMEO, array("sec" => 0, "usec" => 200000));
                 $binded = socket_bind($this->socket, '0.0.0.0', $this->port);
                 
-                $process = popen("ifconfig | grep 'inet addr:192'", 'r');
-                $line = trim(fread($process, 1024));
-                pclose($process);
-                preg_match("/\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/", $line, $matches);
-                
-                $this->localIP = $matches[0];
-                $this->identity = $this->identity($this->localIP);
-                //$this->subnet = $matches[2];
+                $this->localIP = ifconfig::ip();
+                //$this->subnet = ifconfig::subnet();
+                $this->macAddress = ifconfig::macAddress();
+                $this->identity = $this->identity($this->macAddress);
                 
                 $this->context = new ZMQContext();
                 $this->pingIn = new ZMQSocket($this->context, ZMQ::SOCKET_SUB);
@@ -56,12 +52,12 @@ class discovery
         public function broadcast()
         {
                 print "SENDING: " . $this->identity . PHP_EOL . PHP_EOL;
-                socket_sendto($this->socket, $this->identity, self::IDENTITY_LENGTH, 0, $this->subnet, $this->port);
+                socket_sendto($this->socket, $this->identity, self::MAC_ADDRESS_LENGTH, 0, $this->subnet, $this->port);
         }
         
         public function listenUDP()
         {
-                socket_recvfrom($this->socket, $buffer, self::IDENTITY_LENGTH, MSG_WAITALL, $from, $this->port);
+                socket_recvfrom($this->socket, $buffer, self::MAC_ADDRESS_LENGTH, MSG_WAITALL, $from, $this->port);
                 print "BUFFER: " . $buffer . PHP_EOL;
                 print "FROM: ". $from . PHP_EOL . PHP_EOL;
                 if (!empty($buffer) && !empty($from))
@@ -81,15 +77,15 @@ class discovery
                                 case $this->pingIn:
                                         $zmsg = new Zmsg($socket);
                                         $zmsg->recv();
-                                        $ip = $zmsg->address();
-                                        if ($zmsg->parts() == 1)
+                                        if ($zmsg->parts() == 2)
                                         {
-                                                $this->connect($ip);
+                                                list($macAddress, $ip) = $zmsg->extract();
+                                                $this->connect($macAddress, $ip);
                                                 print "GOT TCP IP: " . $ip . PHP_EOL;
                                         }
                                         elseif ($zmsg->parts() == 3)
                                         {
-                                                list($ip, $command, $subject) = $zmsg->extract();
+                                                list($macAddress, $command, $subject) = $zmsg->extract();
                                                 $this->question($command, $subject);
                                         }
                                         break;
@@ -104,9 +100,9 @@ class discovery
                 }
         }
         
-        public function identity($ip)
+        public function identity($macAddress)
         {
-                return str_pad(sprintf("%u", ip2long($ip)), self::IDENTITY_LENGTH, ' ', STR_PAD_LEFT);
+                return str_pad($macAddress, self::MAC_ADDRESS_LENGTH, ' ', STR_PAD_LEFT);// . str_pad(sprintf("%u", ip2long($ip)), self::IP_LENGTH, ' ', STR_PAD_LEFT);
         }
         
         public function question($command, $subject)
@@ -114,111 +110,99 @@ class discovery
                 switch ($command)
                 {
                         case self::CMD_CHECK_DC:
-                                if ($subject == $this->localIP)
+                                if ($subject == $this->macAddress)
                                 {
                                         $zmsg = new Zmsg($this->pingOut);
-                                        $zmsg->set($this->localIP);
+                                        $zmsg->set($this->macAddress, $this->localIP);
                                         $zmsg->send();
                                 }
                                 break;
                 }
         }
         
-        public function connected($ip)
+        public function connected($macAddress)
         {
-                if ($ip == $this->localIP)
+                if ($macAddress == $this->macAddress)
                 {
                         return true;
                 }
-                elseif (isset($this->connected[$ip]) && (time() - $this->connected[$ip]) < self::MAX_NETWORK_TIMEOUT)
+                elseif (isset($this->connected[$macAddress]) && (time() - $this->connected[$macAddress]->last_ping) < self::MAX_NETWORK_TIMEOUT)
                 {
                         return true;
                 }
                 return false;
         }
         
-        public function upToDate($ip)
+        public function upToDate($macAddress)
         {
-                if ($ip == $this->localIP)
+                if ($macAddress == $this->macAddress)
                 {
                         return true;
                 }
-                elseif (isset($this->connected[$ip]) && (time() - $this->connected[$ip]) < self::NETWORK_TIMEOUT_CHECK)
+                elseif (isset($this->connected[$macAddress]) && (time() - $this->connected[$macAddress]->last_ping) < self::NETWORK_TIMEOUT_CHECK)
                 {
                     return true;
                 }
                 return false;
         }
         
-        public function disconnected($ip)
+        public function disconnected($macAddress)
         {
-                print "DISCONNECTED: " . $ip . PHP_EOL;
-                unset($this->connected[$ip]);
-                
-                if ($statement = db::prepare(self::DB, self::SET_INACTIVE_MYSQL))
-                {
-                        $statement->execute(array(
-                                ':ip' => $ip,
-                                ':subnet' => $this->subnet,
-                        ));
-                        return true;
-                }
+                print "DISCONNECTED: " . $macAddress . PHP_EOL;
+                $this->connected[$macAddress]->setInactive();
+                unset($this->connected[$macAddress]);
                 return true;
         }
         
-        public function connect($ip)
+        public function connect($macAddress, $ip)
         {
-                if (!isset($this->connected[$ip]))
+                
+                if (!isset($this->connected[$macAddress]))
                 {
                         $this->pingIn->connect(zmqPorts::NETWORK_DISCOVERY_PROTOCOL . '://' . $ip . ':' . zmqPorts::NETWORK_DISCOVERY_PORT_IN);
+                        if (!($this->connected[$macAddress] = node::fromMacAddress($macAddress)))
+                        {
+                                print "CREATING NEW ENTRY.. " . PHP_EOL;
+                                if (!($this->connected[$macAddress] = node::fromNew($ip, $this->subnet, $macAddress)))
+                                {
+                                        print "... couldn't create" . PHP_EOL;
+                                        return false;
+                                }
+                        }
                 }
-
-                $this->connected[$ip] = time();
                 
-                if ($statement = db::prepare(self::DB, self::SET_ACTIVE_MYSQL))
+                if ($this->connected[$macAddress]->setActive($ip, $this->subnet))
                 {
-                        $statement->execute(array(
-                                ':ip' => $ip,
-                                ':subnet' => $this->subnet,
-                                ':last_ping' => time(),
-                                ':active' => 1,
-                        ));
                         return true;
                 }
-                return true;
+                return false;
         }
         
-        public function parseIdentity($buffer, $from)
+        public function parseIdentity($buffer, $ip)
         {
-                $bufferIP = long2ip((float) trim($buffer));
-                $fromLong = $this->identity($from);
                 
-                if ($buffer == $fromLong)
-                {
-                        $this->connect($from);
-                        print "BUFFER: " . $buffer . PHP_EOL;
-                        print "LONG2IP: " . $bufferIP . PHP_EOL;
-                        print "FROM: " . $from . PHP_EOL;
-                        print "FROMLONG: " . $fromLong . PHP_EOL . PHP_EOL;
-                }
+                $macAddress = trim($buffer);
+                $this->connect($macAddress, $ip);
+                print "BUFFER: " . $buffer . PHP_EOL;
+                print "IP: " . $ip . PHP_EOL;
                 
         }
         
         public function checkConnections()
         {
                 print "checking.. " . PHP_EOL;
-                foreach ($this->connected as $ip => $time)
+                foreach ($this->connected as $macAddress => $node)
                 {
-                        if (!$this->connected($ip))
+                        if (!$this->connected($macAddress))
                         {
-                                $this->disconnected($ip);
+                                $this->disconnected($macAddress);
                         }
-                        elseif (!$this->upToDate($ip))
+                        elseif (!$this->upToDate($macAddress))
                         {
                                 print "CHECKING CONNECTION... " . PHP_EOL;
                                 // ping the network
                                 $zmsg = new Zmsg($this->pingOut);
-                                $zmsg->set($this->localIP, self::CMD_CHECK_DC, $ip);
+                                $zmsg->set($this->macAddress, self::CMD_CHECK_DC, $macAddress);
                                 var_dump($zmsg);
                                 $zmsg->send();
                         }
@@ -228,14 +212,7 @@ class discovery
         public function run()
         {
                 while(true)
-                {
-//                        if ((time() - $_SERVER['REQUEST_TIME']) >= self::RUN_FOR_SECONDS)
-//                        {
-//                                break;
-//                        }
-                        
-                        // listen (number of connections) times longer than broadcasting
-                        
+                {       
                         $this->broadcast();
                         if (count($this->connected) > 0)
                         {

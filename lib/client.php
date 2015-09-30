@@ -19,7 +19,7 @@ class client
                 // return new client object with ip of as construct argument
                 // do stuff? ez.
                 
-                $system = system::fromSystemNumber($node);
+                $system = node::fromSystemNumber($node);
                 return new client($system->ip);
         }
 

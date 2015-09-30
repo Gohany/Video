@@ -2,6 +2,7 @@
 
 define('__BASE_DIR__', '/var/www/');
 
+require_once __BASE_DIR__ . 'lib/ifconfig.php';
 require_once __BASE_DIR__ . 'lib/clientCommands.php';
 require_once __BASE_DIR__ . 'lib/websockets.php';
 require_once __BASE_DIR__ . 'lib/webSocketUsers.php';
@@ -23,4 +24,6 @@ require_once __BASE_DIR__ . 'lib/ebml.php';
 require_once __BASE_DIR__ . 'lib/ebmlElements.php';
 require_once __BASE_DIR__ . 'lib/stream.php';
 require_once __BASE_DIR__ . 'lib/discovery.php';
+require_once __BASE_DIR__ . 'lib/node.php';
 require_once __BASE_DIR__ . 'lib/system.php';
+require_once __BASE_DIR__ . 'lib/settings.php';
