@@ -27,4 +27,11 @@ class requestCmd
         const REMOVE_LAYER = 36;
         const MOVE_LAYER = 37;
         
+        const ASSIGN_SYSTEM_NUMBER = 38;
+        const BROADCAST_ASSIGN_NUMBER = 39;
+        const SYSTEM_STOP = 40;
+        const SYSTEM_STOP_ALL = 41;
+        const SYSTEM_RESTART = 42;
+        const SYSTEM_RESTART_ALL = 43;
+        
 }

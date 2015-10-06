@@ -154,6 +154,9 @@ class cmd
                         case clientWS::ADDRESS_PREFIX:
                                 return 'clientWS';
                                 break;
+                        case system::ADDRESS_PREFIX:
+                                return 'system';
+                                break;
                 }
         }
         
@@ -175,7 +178,7 @@ class request
                 var_dump($zmsg);
                 
                 $this->cmd = new cmd($zmsg);
-                
+                error_log('NEW REQUEST: ' . var_export($this->cmd, true) . PHP_EOL, 3, '/var/www/requests.log');
                 switch ($this->cmd->cmd)
                 {
                         // ADD SOURCE
@@ -248,8 +251,82 @@ class request
                                         $this->runWebsocketCommand($object);
                                 }
                                 break;
+                        case requestCmd::ASSIGN_SYSTEM_NUMBER:
+                                $this->assignSystemNumber($object);
+                                break;
+                        case requestCmd::BROADCAST_ASSIGN_NUMBER:
+                                $this->broadcastAssignNumber($object);
+                                break;
+                        case requestCmd::SYSTEM_STOP:
+                                $this->stopSystem($object);
+                                break;
+                        case requestCmd::SYSTEM_RESTART:
+                                $this->restartSystem($object);
+                                break;
+                        case requestCmd::SYSTEM_STOP_ALL:
+                                $this->stopAllSystems($object);
+                                break;
+                        case requestCmd::SYSTEM_RESTART_ALL:
+                                $this->restartAllSystems($object);
                 }
                 
+        }
+        
+        public function restartSystem(system $system)
+        {
+                $system->shutdownProcs();
+                $restart = new Process(PHP_BINDIR . '/php /var/www/start.php -f system.php');
+                $this->cmd->push($this->cmd->address, requestCmd::SUCCESS);
+                $this->cmd->send($system->client);
+                exit;
+        }
+        
+        public function restartAllSystems(system $system)
+        {
+                $clientIdentity = $this->cmd->address;
+                $this->cmd->push($system->identity, requestCmd::SYSTEM_RESTART, $this->cmd->data);
+                $this->cmd->send($system->publish);
+                $system->shutdownProcs();
+                $restart = new Process(PHP_BINDIR . '/php /var/www/start.php -f system.php');
+                $this->cmd->push($clientIdentity, requestCmd::SUCCESS);
+                $this->cmd->send($system->client);
+                exit;
+        }
+        
+        public function stopAllSystems(system $system)
+        {
+                $clientIdentity = $this->cmd->address;
+                $this->cmd->push($system->identity, requestCmd::SYSTEM_STOP, $this->cmd->data);
+                $this->cmd->send($system->publish);
+                $system->shutdownProcs();
+                $this->cmd->push($clientIdentity, requestCmd::SUCCESS);
+                $this->cmd->send($system->client);
+                exit;
+        }
+        
+        public function stopSystem(system $system)
+        {
+                $system->shutdownProcs();
+                $this->cmd->push($this->cmd->address, requestCmd::SUCCESS);
+                $this->cmd->send($system->client);
+                exit;
+        }
+        
+        public function broadcastAssignNumber(system $system)
+        {
+                $clientIdentity = $this->cmd->address;
+                $this->cmd->push($system->identity, requestCmd::ASSIGN_SYSTEM_NUMBER, $this->cmd->data);
+                $this->cmd->send($system->publish);
+                $this->cmd->push($clientIdentity, requestCmd::SUCCESS);
+                $this->cmd->send($system->client);
+        }
+        
+        public function assignSystemNumber(system $system)
+        {
+                if ($node = node::fromMacAddress($this->cmd->data->macAddress))
+                {
+                        $node->setSystemNumber($this->cmd->data->system_number, $this->cmd->data->macAddress);
+                }
         }
         
         public function replyClient(vController $controller, $success = 'success')

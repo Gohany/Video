@@ -20,10 +20,11 @@ class client
                 // do stuff? ez.
                 
                 $system = node::fromSystemNumber($node);
+                print "STARTING CLIENT WITH " . $system->ip . PHP_EOL;
                 return new client($system->ip);
         }
 
-        public function __construct($ip = 'localhost')
+        public function __construct($ip = 'localhost', $server = 'controller')
         {
                 $this->context = new ZMQContext();
                 $this->client = new ZMQSocket($this->context, ZMQ::SOCKET_DEALER);
@@ -31,7 +32,16 @@ class client
                 //  Generate printable identity for the client
                 $this->identity = self::ADDRESS_PREFIX . getmypid();
                 $this->client->setSockOpt(ZMQ::SOCKOPT_IDENTITY, $this->identity);
-                $this->client->connect(zmqPorts::CLIENT_CONTROLLER_PROTOCOL . "://" . $ip . ":" . zmqPorts::CLIENT_CONTROLLER_INSTRUCTION);
+                
+                if ($server == 'controller')
+                {
+                        $this->client->connect(zmqPorts::CLIENT_CONTROLLER_PROTOCOL . "://" . $ip . ":" . zmqPorts::CLIENT_CONTROLLER_INSTRUCTION);
+                }
+                elseif ($server == 'system')
+                {
+                        $this->client->connect(zmqPorts::CLIENT_SYSTEM_PROTOCOL . "://" . $ip . ":" . zmqPorts::CLIENT_SYSTEM_INSTRUCTION);
+                        print "STARTING SYSTEM.. " . PHP_EOL;
+                }
                 
                 $this->poll = new ZMQPoll();
                 $this->poll->add($this->client, ZMQ::POLL_IN);
@@ -56,30 +66,30 @@ class client
 //                }
         }
 
-        public function request($cmd, $id = null)
+        public function request($cmd, $data)
         {
                 
 //                $zmsg = new Zmsg($this->client);
 //                $zmsg->recv();
 //                var_dump($zmsg);
                 
-                if (!defined('clientCmd::' . $cmd))
+                if (!defined('requestCmd::' . $cmd))
                 {
                      throw new Exception("Undefined command");
                 }
                 
-                $data = [
-                    'id' => $id,
-                    'targets' => 'ALL',
-                    'height' => 0,
-                    'width' => 0,
-                    'x' => 0,
-                    'y' => 0,
-                ];
+//                $data = [
+//                    'id' => $id,
+//                    'targets' => 'ALL',
+//                    'height' => 0,
+//                    'width' => 0,
+//                    'x' => 0,
+//                    'y' => 0,
+//                ];
                 
                 $cmd = cmd::create($this->identity, constant('requestCmd::' . $cmd), $data);
                 $cmd->send($this->client);
-                
+                var_dump($cmd);
                 $read = $write = array();
                 while (true)
                 {

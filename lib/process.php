@@ -45,7 +45,31 @@ class Process
                         return true;
                 }
         }
-
+        
+        public static function isRunning($cmd)
+        {
+                $command = "ps aux | grep \"[" . $cmd[0] . "]" . substr($cmd, 1) . "\"";
+                exec($command, $op);
+                return isset($op[0]);
+        }
+        
+        public static function fromCMD($cmd)
+        {
+                $command = "ps aux | grep \"[" . $cmd[0] . "]" . substr($cmd, 1) . "\" | awk '{print $2;}'";
+                exec($command, $op);
+                if (count($op) > 0)
+                {
+                        foreach ($op as $pid)
+                        {
+                                $processes[$pid] = new Process();
+                                $processes[$pid]->command = $cmd;
+                                $processes[$pid]->setPid($pid);
+                        }
+                        return $processes;
+                }
+                return false;
+        }
+        
         public function start()
         {
                 if ($this->command != '')

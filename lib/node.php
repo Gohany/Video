@@ -156,9 +156,9 @@ class nodeQueries
 {
         const SET_SYSTEM_NUMBER = "UPDATE video.activeNodes SET system_number = :system_number WHERE macAddress = :macAddress LIMIT 1";
         const INSERT = "INSERT INTO video.activeNodes (ip, subnet, macAddress, last_ping, active) VALUES (INET_ATON(:ip), INET_ATON(:subnet), :macAddress, :last_ping, :active)";
-        const FROM_MAC_ADRESS = 'SELECT INET_NTOA(ip), INET_NTOA(subnet), macAddress, last_ping, system_number, active, created FROM video.activeNodes WHERE macAddress = :macAddress LIMIT 1';
-        const FROM_SYSTEM_NUMBER = 'SELECT system_id, INET_NTOA(activeNodes.ip) AS ip, INET_NTOA(subnet) AS subnet, system_number, activeNodes.active, activeNodes.created, last_ping FROM video.activeSystems JOIN video.activeNodes USING(ip) WHERE system_number = :system_number LIMIT 1';
-        const BY_ACTIVE = "SELECT INET_NTOA(ip), INET_NTOA(subnet), macAddress, last_ping, system_number, active, created FROM video.activeNodes WHERE active = '1'";
+        const FROM_MAC_ADRESS = 'SELECT INET_NTOA(ip) AS ip, INET_NTOA(subnet) AS subnet, macAddress, last_ping, system_number, active, created FROM video.activeNodes WHERE macAddress = :macAddress LIMIT 1';
+        const FROM_SYSTEM_NUMBER = 'SELECT INET_NTOA(ip) AS ip, INET_NTOA(subnet) AS subnet, macAddress, last_ping, system_number, active, created FROM video.activeNodes WHERE system_number = :system_number LIMIT 1';
+        const BY_ACTIVE = "SELECT INET_NTOA(ip) AS ip, INET_NTOA(subnet) AS subnet, macAddress, last_ping, system_number, active, created FROM video.activeNodes WHERE active = '1'";
         //const BY_ACTIVE = 'SELECT system_id, INET_NTOA(activeNodes.ip) AS ip, INET_NTOA(subnet) AS subnet, system_number, activeSystems.active, activeNodes.created, last_ping FROM video.activeSystems JOIN video.activeNodes USING(ip) WHERE activeNodes.active = \'1\' ORDER BY system_id ASC LIMIT :offset, :limit';
         const SET_ACTIVE = "INSERT INTO video.activeNodes (ip, subnet, macAddress, last_ping, active) VALUES (INET_ATON(:ip), INET_ATON(:subnet), :macAddress, :last_ping, :active) ON DUPLICATE KEY UPDATE last_ping = values(last_ping), active = values(active), ip = values(ip), subnet = values(subnet)";
         const SET_INACTIVE = "INSERT INTO video.activeNodes (macAddress, active) VALUES (:macAddress, '0') ON DUPLICATE KEY UPDATE active = values(active)";
